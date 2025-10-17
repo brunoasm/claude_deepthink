@@ -1,0 +1,15 @@
+# Claude Code files
+.claude/
+.claude_history
+.clinerules
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
