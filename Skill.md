@@ -1,9 +1,9 @@
 ---
-name: Deep Thinking Protocol
-description: Engage deeper analysis when responding to user statements or questions requiring confirmation, preventing automatic agreement or disagreement
+name: Thinking Deeply
+description: Engages structured analysis to explore multiple perspectives and context dependencies before responding. Use when users ask confirmation-seeking questions, make leading statements, request binary choices, or when feeling inclined to quickly agree or disagree without thorough consideration.
 ---
 
-# Deep Thinking Protocol
+# Thinking Deeply
 
 ## Purpose
 
