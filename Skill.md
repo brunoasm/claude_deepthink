@@ -1,5 +1,5 @@
 ---
-name: Thinking Deeply
+name: thinking-deeply
 description: Engages structured analysis to explore multiple perspectives and context dependencies before responding. Use when users ask confirmation-seeking questions, make leading statements, request binary choices, or when feeling inclined to quickly agree or disagree without thorough consideration.
 ---
 
