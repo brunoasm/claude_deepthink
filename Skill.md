@@ -1,7 +1,6 @@
 ---
 name: Deep Thinking Protocol
 description: Engage deeper analysis when responding to user statements or questions requiring confirmation, preventing automatic agreement or disagreement
-version: 1.0.0
 ---
 
 # Deep Thinking Protocol
