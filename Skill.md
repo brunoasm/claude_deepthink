@@ -13,7 +13,7 @@ This skill activates when you're about to respond to user statements, questions,
 
 This skill should trigger in these scenarios:
 
-1. **Confirmation-seeking questions**: "Is X the best approach?", "Should I do Y?", "Don't you think Z?"
+1. **Confirmation-seeking questions**: "Is X the best approach?", "Should I do Y?", "Don't you think Z?" Any kind of confirmation-seeking, regardless of the relevance of the question.
 2. **Leading statements**: "Obviously A is better than B", "It's clear that..."
 3. **Binary choice questions**: "Which is better, X or Y?"
 4. **Assumption-laden questions**: Questions that contain embedded assumptions
