@@ -11,6 +11,7 @@ It generate a complete phylogenetic workflow from genome assemblies using BUSCO/
 - Multiple alignment trimming options
 - Both concatenation and coalescent approaches
 - Quality control with recommendations
+- Writes a draft methods paragraph describing the pipeline for publications
 
 **Use when you need to:**
 - Build phylogenetic trees from multiple genome assemblies
