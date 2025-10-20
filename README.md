@@ -59,17 +59,17 @@ Claude skills are custom instructions that modify how Claude behaves in specific
 Install this entire plugin collection with a single command:
 
 ```bash
-/plugin marketplace add <your-github-username>/my_claude_skills
-/plugin install bruno-custom-skills@<your-github-username>/my_claude_skills
+/plugin marketplace add brunoasm/my_claude_skills
+/plugin install basm-claude-skills@brunoasm/my_claude_skills
 ```
 
 Or install directly from a local clone:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/brunoasm/my_claude_skills.git
 cd my_claude_skills
 /plugin marketplace add .
-/plugin install bruno-custom-skills@.
+/plugin install basm-claude-skills@.
 ```
 
 All skills will be automatically available in Claude Code.

@@ -13,3 +13,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Skill development reference materials
+phylo_from_buscos/info_to_craft_skill/

@@ -10,12 +10,21 @@
   },
   "plugins": [
     {
-      "name": "basm-custom-skills",
-      "description": "Custom skills including deep thinking for better reasoning and multi-perspective analysis",
+      "name": "general-skills",
+      "description": "Custom general skills to improve claude outputs",
       "source": "./",
       "strict": false,
       "skills": [
         "./think_deeply"
+      ]
+    },
+    {
+      "name": "bioinfo-skills",
+      "description": "Bioinformatics skills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./phylo_from_buscos"
       ]
     }
   ]
