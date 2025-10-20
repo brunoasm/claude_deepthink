@@ -91,7 +91,7 @@ MIT License - see individual tool licenses for software dependencies.
 
 For issues or questions:
 - Open an issue in this repository
-- Contact Bruno de Medeiros at the Field Museum
+- Contact Bruno de Medeiros at the Field Museum (bdemedeiros@fieldmuseum.org)
 
 ## Acknowledgments
 
