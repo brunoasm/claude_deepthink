@@ -1,12 +1,8 @@
-# BUSCO-based Phylogenomics Skills
+# BUSCO-based Phylogenomics Skill
 
-A collection of Claude Code skills for phylogenomic analyses, created by Bruno de Medeiros (Field Museum).
+A Claude Code skills for phylogenomic analyses, created by Bruno de Medeiros (Field Museum) based on code initially written by Paul Frandsen (Brigham Young University)
 
-## Skills in this Collection
-
-### busco-phylogeny
-
-Generate complete phylogenetic workflows from genome assemblies using BUSCO/compleasm-based single-copy orthologs.
+It generate a complete phylogenetic workflow from genome assemblies using BUSCO/compleasm-based single-copy orthologs.
 
 **Features:**
 - Supports local genome files and NCBI accessions (BioProjects/Assemblies)
@@ -23,47 +19,12 @@ Generate complete phylogenetic workflows from genome assemblies using BUSCO/comp
 - Generate ready-to-run scripts for your computing environment
 
 ## Installation
+See README on the repository root folder for plugin installation.
 
-### Option 1: Install as Plugin (Recommended)
-
-1. Create or update your Claude Code plugin configuration:
-
-```json
-{
-  "mcpServers": {
-    "busco-phylogeny": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@anthropic-ai/mcp-agent-router@latest"],
-      "env": {
-        "SKILL_MANIFEST": "/path/to/phylo_from_buscos/plugin.json"
-      }
-    }
-  }
-}
-```
-
-2. Replace `/path/to/phylo_from_buscos/` with the actual path to this repository
-
-3. Restart Claude Code
-
-### Option 2: Use Skills Directly
-
-Copy individual skill directories to your `.claude/skills/` directory:
-
-```bash
-cp -r busco-phylogeny ~/.claude/skills/
-```
 
 ## Usage
 
-Once installed, invoke the skill in Claude Code:
-
-```
-/busco-phylogeny
-```
-
-Or simply describe your phylogenomics task:
+Once installed, simply describe your phylogenomics task:
 
 ```
 I need to generate a phylogeny from 20 genome assemblies on a SLURM cluster
