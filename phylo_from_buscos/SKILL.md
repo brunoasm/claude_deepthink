@@ -24,6 +24,9 @@ You have access to these supporting files:
 - **`scripts/rename_genomes.py`** - Rename genome files with meaningful sample names (important!)
 - **`scripts/generate_qc_report.sh`** - Generate quality control reports from compleasm results
 - **`scripts/extract_orthologs.sh`** - Extract and reorganize single-copy orthologs
+- **`scripts/run_aliscore.sh`** - Wrapper for Aliscore to identify randomly similar sequences (RSS)
+- **`scripts/run_alicut.sh`** - Wrapper for ALICUT to remove RSS positions from alignments
+- **`scripts/run_aliscore_alicut_batch.sh`** - Batch process all alignments through Aliscore + ALICUT
 - **`scripts/convert_fasconcat_to_partition.py`** - Convert FASconCAT output to IQ-TREE partition format
 - **`REFERENCE.md`** - Detailed technical reference (lineages, resources, citations, troubleshooting, **sample naming**)
 
@@ -338,18 +341,115 @@ conda install -c bioconda bmge
 bmge -i ${locus} -t AA -o ../trimmed_aa/$(basename ${locus} _aligned.fas)_trimmed.fas
 ```
 
-#### Option D: Aliscore/ALICUT (Traditional from tutorials)
+#### Option D: Aliscore/ALICUT (Traditional, recommended for phylogenomics)
 
-Provide download instructions for Aliscore and ALICUT Perl scripts, then:
+**Aliscore/ALICUT** uses Monte Carlo resampling to identify and remove randomly similar sequence (RSS) sections that may mislead phylogenetic inference. This is the method used in many phylogenomics tutorials.
+
+**Download Aliscore and ALICUT:**
+```bash
+# Download from ZFMK website
+wget https://www.zfmk.de/en/research/research-centres-and-groups/aliscore/aliscore-v2.2.tar.gz
+tar -xzf aliscore-v2.2.tar.gz
+
+# Copy Perl scripts to scripts directory
+cp aliscore_v2.2/Aliscore.02.2.pl scripts/
+cp aliscore_v2.2/ALICUT_V2.31.pl scripts/
+```
+
+**Method 1: Batch Processing (Recommended)**
+
+Process all alignments automatically using our wrapper script **`scripts/run_aliscore_alicut_batch.sh`**:
 
 ```bash
-# Run Aliscore array job
-perl Aliscore.02.2.pl -i ${locus} -N
+# For amino acid sequences (use -N to treat gaps as ambiguous)
+bash scripts/run_aliscore_alicut_batch.sh aligned_aa/ -N -o trimmed_aa
 
-# After all complete, run ALICUT interactively
+# Custom window size (larger window = less sensitive to short RSS sections)
+bash scripts/run_aliscore_alicut_batch.sh aligned_aa/ -w 6 -N -o trimmed_aa
+
+# For RNA with secondary structure (preserve stem pairings)
+bash scripts/run_aliscore_alicut_batch.sh aligned_rrna/ -N --remain-stems -o trimmed_rrna
+```
+
+This will:
+1. Run Aliscore on each alignment to identify RSS positions
+2. Run ALICUT to remove those positions
+3. Generate `trimmed_aa/` with all trimmed alignments
+4. Create `trimming_summary.txt` with statistics
+
+**Method 2: Array Jobs (For HPC clusters)**
+
+For SLURM clusters, use the individual wrapper scripts **`scripts/run_aliscore.sh`** and **`scripts/run_alicut.sh`**:
+
+```bash
 cd aligned_aa
-perl ALICUT_V2.31.pl
-# Press 's' to start with defaults for amino acids
+ls *.fas > locus_list.txt
+num_loci=$(wc -l < locus_list.txt)
+
+# Step 1: Aliscore array job
+#!/bin/bash
+#SBATCH --job-name=aliscore_array
+#SBATCH --array=1-${num_loci}
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=2G
+#SBATCH --time=4:00:00
+#SBATCH --output=logs/%A_%a.aliscore.out
+
+source ~/.bashrc
+
+# Run Aliscore using wrapper
+bash ../scripts/run_aliscore.sh -N
+
+# This reads from locus_list.txt using SLURM_ARRAY_TASK_ID
+```
+
+After all Aliscore jobs complete:
+
+```bash
+# Step 2: ALICUT array job or batch processing
+for dir in aliscore_*/; do
+    bash ../scripts/run_alicut.sh "${dir}" -s
+done
+
+# Collect trimmed alignments
+mkdir -p ../trimmed_aa
+for dir in aliscore_*/; do
+    trimmed=$(find "${dir}" -name "ALICUT_*.fas")
+    if [ -n "${trimmed}" ]; then
+        locus=$(basename "${dir}" | sed 's/aliscore_//')
+        cp "${trimmed}" ../trimmed_aa/${locus}_trimmed.fas
+    fi
+done
+```
+
+**Key Parameters:**
+
+- `-N` : Treat gaps as ambiguous characters (recommended for amino acids)
+- `-w INT` : Window size (default: 4; larger = less sensitive to short RSS)
+- `-r INT` : Number of random pairwise comparisons (default: 4×number of taxa)
+- `--remain-stems` : Preserve RNA secondary structure stem positions
+- `--remove-codon` : Remove entire codons (for back-translating AA to nucleotides)
+- `--remove-3rd` : Remove only 3rd codon positions
+
+**Understanding Outputs:**
+
+Each `aliscore_[locus]/` directory contains:
+- `*_List_random.txt` - Positions identified as RSS (input for ALICUT)
+- `*_Profile_random.txt` - Quality scores for each alignment position
+- `*.svg` - Visual plot of scoring profiles
+- `ALICUT_*.fas` - Trimmed alignment (after ALICUT)
+- `ALICUT_info.xls` - Statistics (number of taxa, positions removed, etc.)
+
+**Quality Control:**
+
+Check the trimming summary to ensure reasonable amounts removed:
+```bash
+cat trimmed_aa/trimming_summary.txt
+
+# Typical values:
+# - Well-aligned loci: 5-15% removed
+# - Moderately aligned: 15-30% removed
+# - Poorly aligned: >30% removed (consider excluding entire locus)
 ```
 
 ---
