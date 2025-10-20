@@ -1,0 +1,22 @@
+{
+  "name": "basm-claude-skills",
+  "owner": {
+    "name": "Bruno de Medeiros",
+    "email": "bdemedeiros@fieldmuseum.org"
+  },
+  "metadata": {
+    "description": "Bruno de Medeiros' curated collection of custom Claude skills for enhanced reasoning, deeper analysis, and bioinformatics",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "basm-custom-skills",
+      "description": "Custom skills including deep thinking for better reasoning and multi-perspective analysis",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./think_deeply"
+      ]
+    }
+  ]
+}

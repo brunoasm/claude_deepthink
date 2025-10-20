@@ -4,7 +4,23 @@ A curated collection of custom skills for Claude that I find useful in my work.
 
 ## About This Repository
 
-This repository contains custom Claude skills designed to improve how Claude approaches different types of tasks. Each skill is a self-contained module that can be installed independently in Claude.ai or used via the Claude API or Claude Code
+This repository contains custom Claude skills designed to improve how Claude approaches different types of tasks. Each skill is a self-contained module that can be installed independently in Claude.ai or used via the Claude API or Claude Code.
+
+### Anthropic Official Skills
+
+The `anthropic-skills/` directory contains the official skills repository from Anthropic as a git submodule. This includes:
+- **skill-creator**: A meta-skill that helps you create new custom skills
+- Other official example skills and templates
+
+To clone this repository with the submodule:
+```bash
+git clone --recurse-submodules <repository-url>
+```
+
+If you've already cloned without submodules:
+```bash
+git submodule update --init --recursive
+```
 
 ## What Are Claude Skills?
 
@@ -16,7 +32,7 @@ Claude skills are custom instructions that modify how Claude behaves in specific
 
 ## Available Skills
 
-### claude_deepthink
+### thinking-deeply
 
 **Purpose:** Prevents automatic agreement or disagreement by enforcing deeper analysis and multi-perspective thinking.
 
@@ -34,21 +50,41 @@ Claude skills are custom instructions that modify how Claude behaves in specific
 
 **Use case:** Get more thorough analysis of technical decisions, architectural choices, framework comparisons, and any situation where you want Claude to think critically rather than reflexively agree.
 
-[View detailed documentation →](./claude_deepthink/README.md)
+[View detailed documentation →](./think_deeply/README.md)
 
 ## Installation
 
+### For Claude Code (Recommended)
+
+Install this entire plugin collection with a single command:
+
+```bash
+/plugin marketplace add <your-github-username>/my_claude_skills
+/plugin install bruno-custom-skills@<your-github-username>/my_claude_skills
+```
+
+Or install directly from a local clone:
+
+```bash
+git clone <your-repo-url>
+cd my_claude_skills
+/plugin marketplace add .
+/plugin install bruno-custom-skills@.
+```
+
+All skills will be automatically available in Claude Code.
+
 ### For Claude.ai (Web/Mobile Apps)
 
-1. Navigate to the specific skill directory (e.g., `claude_deepthink`)
-2. Create a ZIP file containing the skill's files (`Skill.md` and `README.md`)
+1. Navigate to the specific skill directory (e.g., `think_deeply`)
+2. Create a ZIP file containing the skill's files (`SKILL.md` and `README.md`)
 3. Go to Claude.ai Settings > Capabilities > Skills
 4. Click "Upload Skill" and select the ZIP file
 5. Enable the skill
 
 ### For Claude API
 
-Place the `Skill.md` file from each skill directory in your skills configuration according to your API integration setup. Consult the Claude API documentation for skill configuration details.
+Place the `SKILL.md` file from each skill directory in your skills configuration according to your API integration setup. Consult the Claude API documentation for skill configuration details.
 
 ## Skill Structure
 
@@ -56,7 +92,7 @@ Each skill in this repository follows this structure:
 
 ```
 skill_name/
-├── Skill.md          # The skill definition (required for Claude)
+├── SKILL.md          # The skill definition (required for Claude)
 └── README.md         # Documentation and usage examples
 ```
 

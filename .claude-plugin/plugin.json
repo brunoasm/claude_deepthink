@@ -1,0 +1,9 @@
+{
+  "name": "basm-custom-skills",
+  "description": "Bruno de Medeiros' custom Claude skills for deeper thinking, better reasoning and bioinformatics",
+  "version": "1.0.0",
+  "author": {
+    "name": "Bruno de Medeiros",
+    "email": "bdemedeiros@fieldmuseum.org"
+  }
+}
