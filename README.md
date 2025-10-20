@@ -56,23 +56,43 @@ Claude skills are custom instructions that modify how Claude behaves in specific
 
 ### For Claude Code (Recommended)
 
-Install this entire plugin collection with a single command:
+#### Install All Plugins
+
+Install the entire marketplace with both plugin collections:
 
 ```bash
 /plugin marketplace add brunoasm/my_claude_skills
-/plugin install basm-claude-skills@brunoasm/my_claude_skills
+/plugin install general-skills@brunoasm/my_claude_skills
+/plugin install bioinfo-skills@brunoasm/my_claude_skills
 ```
 
-Or install directly from a local clone:
+#### Install Individual Plugins
+
+Install only the plugins you need:
+
+**For general skills only (thinking-deeply):**
+```bash
+/plugin marketplace add brunoasm/my_claude_skills
+/plugin install general-skills@brunoasm/my_claude_skills
+```
+
+**For bioinformatics skills only (busco-phylogeny):**
+```bash
+/plugin marketplace add brunoasm/my_claude_skills
+/plugin install bioinfo-skills@brunoasm/my_claude_skills
+```
+
+#### Install from Local Clone
 
 ```bash
 git clone https://github.com/brunoasm/my_claude_skills.git
 cd my_claude_skills
 /plugin marketplace add .
-/plugin install basm-claude-skills@.
+/plugin install general-skills@.
+/plugin install bioinfo-skills@.
 ```
 
-All skills will be automatically available in Claude Code.
+All installed skills will be automatically available in Claude Code.
 
 ### For Claude.ai (Web/Mobile Apps)
 
