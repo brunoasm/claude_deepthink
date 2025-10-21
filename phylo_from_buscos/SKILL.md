@@ -102,16 +102,43 @@ if ! command -v conda &> /dev/null; then
     exit 1
 fi
 
+# Ask user preference for conda vs mamba
+echo "We will use Anaconda/Miniconda to set up the software environment."
+echo ""
+echo "Package Manager Options:"
+echo "  1) mamba (faster, recommended if available)"
+echo "  2) conda (standard, always available)"
+echo ""
+read -p "Enter choice [1-2] (default: 2): " PKG_MGR_CHOICE
+PKG_MGR_CHOICE=${PKG_MGR_CHOICE:-2}
+
+if [ "${PKG_MGR_CHOICE}" = "1" ]; then
+    if command -v mamba &> /dev/null; then
+        PKG_MANAGER="mamba"
+        echo "Using mamba for environment creation"
+    else
+        echo "WARNING: mamba not found. Falling back to conda."
+        echo "To install mamba: conda install -n base -c conda-forge mamba"
+        PKG_MANAGER="conda"
+    fi
+else
+    PKG_MANAGER="conda"
+    echo "Using conda for environment creation"
+fi
+
+echo ""
+
 # Environment name
 ENV_NAME="phylo"
 
-echo "Creating conda environment: ${ENV_NAME}"
+echo "Creating environment: ${ENV_NAME}"
 echo ""
 
-# Create environment with all tools
-conda create -n ${ENV_NAME} -y \
+# Create environment with all tools (using chosen package manager)
+${PKG_MANAGER} create -n ${ENV_NAME} -y \
     -c conda-forge -c bioconda \
     python=3.9 \
+    astral-tree \
     compleasm \
     mafft \
     trimal \
@@ -122,7 +149,8 @@ conda create -n ${ENV_NAME} -y \
     perl-bioperl \
     parallel \
     wget \
-    ncbi-datasets-cli
+    ncbi-datasets-cli \
+    openjdk
 
 echo ""
 echo "Environment created successfully!"
@@ -153,15 +181,15 @@ SCRIPT_CHOICE=${SCRIPT_CHOICE:-1}
 if [ "${SCRIPT_CHOICE}" = "1" ]; then
     echo "Using predownloaded Aliscore/ALICUT scripts..."
 
-    # Copy predownloaded scripts from skill directory
-    if [ -d "${SKILL_DIR}/scripts/predownloaded_aliscore_alicut" ]; then
-        cp "${SKILL_DIR}/scripts/predownloaded_aliscore_alicut/Aliscore.02.2.pl" scripts/
-        cp "${SKILL_DIR}/scripts/predownloaded_aliscore_alicut/ALICUT_V2.31.pl" scripts/
-        cp "${SKILL_DIR}/scripts/predownloaded_aliscore_alicut/Aliscore_module.pm" scripts/
+    # Download predownloaded scripts from GitHub repository
+    GITHUB_BASE="https://github.com/brunoasm/my_claude_skills/raw/main/phylo_from_buscos/scripts/predownloaded_aliscore_alicut"
+    if wget -q "${GITHUB_BASE}/Aliscore.02.2.pl" -O scripts/Aliscore.02.2.pl && \
+       wget -q "${GITHUB_BASE}/ALICUT_V2.31.pl" -O scripts/ALICUT_V2.31.pl && \
+       wget -q "${GITHUB_BASE}/Aliscore_module.pm" -O scripts/Aliscore_module.pm; then
         chmod +x scripts/Aliscore.02.2.pl scripts/ALICUT_V2.31.pl
-        echo "Predownloaded scripts copied successfully."
+        echo "Predownloaded scripts downloaded successfully."
     else
-        echo "ERROR: Predownloaded scripts not found. Falling back to download option."
+        echo "ERROR: Failed to download predownloaded scripts. Falling back to download option."
         SCRIPT_CHOICE="2"
     fi
 fi
@@ -197,7 +225,7 @@ echo "To activate environment:"
 echo "  conda activate ${ENV_NAME}"
 echo ""
 echo "Key tools installed:"
-conda list | grep -E "compleasm|mafft|trimal|clipkit|bmge|iqtree|parallel|perl"
+conda list | grep -E "compleasm|mafft|trimal|clipkit|bmge|iqtree|astral|parallel|perl|openjdk"
 echo ""
 ```
 
@@ -215,17 +243,20 @@ This unified environment includes:
 - `mafft` - Multiple sequence alignment
 - `trimal`, `clipkit`, `bmge` - Alignment trimming
 - `iqtree` - Phylogenetic inference
+- `astral-tree` - Species tree inference (coalescent method)
+- `openjdk` - Java runtime for ASTRAL and other tools
 - `perl` with BioPerl - Required for Aliscore/ALICUT
 - `parallel` - GNU parallel for batch processing
 - `ncbi-datasets-cli` - For NCBI genome downloads
 - `astral-tree` - For species tree inference
 
 **Important Notes:**
+- Users can choose between using mamba (faster) or conda (standard) for environment creation
 - Users can choose between predownloaded Aliscore/ALICUT scripts (tested with tutorial) or latest versions from GitHub
-- Predownloaded scripts are included in `scripts/predownloaded_aliscore_alicut/` directory
+- Predownloaded scripts are downloaded from the GitHub repository
 - All subsequent workflow steps should use `conda activate phylo` instead of creating separate environments
 - The unified environment simplifies workflow management and reduces disk space usage
-- System tools like GNU parallel and Perl are included in the conda environment (no separate installation needed)
+- ASTRAL is installed as `astral-tree` and accessible via the `astral` command (no manual download needed)
 
 #### Option B: Separate Environments (Advanced Users Only)
 
@@ -255,26 +286,54 @@ python scripts/download_ncbi_genomes.py --assemblies GCA_123456789.1 GCF_9876543
 unzip genomes.zip
 ```
 
-After download, help user locate FASTA files in the extracted `ncbi_dataset/data/` directory.
+After download, FASTA files will be located in the extracted `ncbi_dataset/data/[ACCESSION]/` subdirectories.
 
-**IMPORTANT: Rename genomes with meaningful sample names!**
+**IMPORTANT: Rename and organize genomes with meaningful sample names!**
 
 Sample names become the labels in your final phylogenetic tree. Use format: `[ACCESSION]_[SPECIES_NAME]`
 
+When generating download scripts, ensure they:
+
+1. **Find all downloaded FASTA files** in the ncbi_dataset directory structure:
 ```bash
-# Create template for renaming
-python scripts/rename_genomes.py --create-template *.fasta > samples.tsv
-
-# Edit samples.tsv with meaningful names:
-# Example: GCA_000001735.2.fasta → GCA000001735_Arabidopsis_thaliana.fasta
-
-# Apply renaming
-python scripts/rename_genomes.py --mapping samples.tsv
+find ncbi_dataset/data -name "*.fna" -type f
 ```
 
-See `REFERENCE.md` section "Sample Naming Best Practices" for detailed guidelines.
+2. **Move files to main genomes directory** with proper renaming based on species information:
+```bash
+# For each genome in genomes_to_download.txt, find its .fna file and copy with meaningful name
+while IFS=',' read -r species accession; do
+    if [ "$species" != "species" ] && [ -n "$species" ]; then
+        # Find the downloaded file
+        fna_file=$(find ncbi_dataset/data -name "${accession}*.fna" -type f | head -1)
+        if [ -n "$fna_file" ]; then
+            # Clean accession (remove dots) and create meaningful filename
+            clean_acc=$(echo "$accession" | tr -d '.')
+            new_name="${clean_acc}_${species}.fna"
+            cp "$fna_file" "$new_name"
+            echo "Copied: $fna_file -> $new_name"
+        fi
+    fi
+done < ../sources/genomes_to_download.txt
+```
 
-Now create a genome list file with the renamed files.
+3. **Also copy/rename any local genome files** to the same directory with consistent naming format.
+
+4. **Create final genome list** that includes ALL genomes (both downloaded and local):
+```bash
+# List all .fasta and .fna files in the genomes directory (not in subdirectories)
+find genomes -maxdepth 1 -type f \( -name "*.fasta" -o -name "*.fna" \) > genome_list.txt
+# Or simply:
+ls genomes/*.fasta genomes/*.fna 2>/dev/null | cat > genome_list.txt
+```
+
+**Key points for download script generation:**
+- Files in ncbi_dataset/data subdirectories must be COPIED to the main genomes directory
+- Both local and downloaded genomes must be renamed with the same format
+- The final genome_list.txt must include paths to ALL genomes (local + downloaded)
+- Use full paths or paths relative to the working directory for genome_list.txt
+
+See `REFERENCE.md` section "Sample Naming Best Practices" for detailed guidelines.
 
 ---
 
@@ -298,19 +357,20 @@ ls /path/to/genomes/*.fasta > genome_list.txt
 
 **Generate scheduler-specific script:**
 
-Then provide the appropriate array job script based on user's computing environment:
+**IMPORTANT:** compleasm creates temporary files (e.g., `[lineage].tmp`) that prevent parallel execution of multiple genomes. Therefore, compleasm jobs must run **serially** (one at a time), but each job should use **all available CPU threads** for maximum efficiency.
+
+Then provide the appropriate script based on user's computing environment:
 
 #### For SLURM:
 
 ```bash
 #!/bin/bash
-#SBATCH --job-name=compleasm_array
-#SBATCH --array=1-N  # Replace N with number of genomes
-#SBATCH --cpus-per-task=4
+#SBATCH --job-name=compleasm_serial
+#SBATCH --cpus-per-task=THREADS  # Replace with available CPUs (e.g., 16, 32, 64)
 #SBATCH --mem-per-cpu=6G
-#SBATCH --time=24:00:00
-#SBATCH --output=logs/%A_%a.compleasm.out
-#SBATCH --error=logs/%A_%a.compleasm.err
+#SBATCH --time=72:00:00
+#SBATCH --output=logs/compleasm.%j.out
+#SBATCH --error=logs/compleasm.%j.err
 
 source ~/.bashrc
 conda activate phylo  # Use unified environment
@@ -318,29 +378,31 @@ conda activate phylo  # Use unified environment
 # Create logs directory if it doesn't exist
 mkdir -p logs
 
-# Parse genome from list
-genome=$(sed -n "${SLURM_ARRAY_TASK_ID}p" genome_list.txt)
-genome_name=$(basename ${genome} .fasta)
+# Run compleasm serially for each genome, using all available threads
+while read genome; do
+  genome_name=$(basename ${genome} .fasta)
+  echo "Processing ${genome_name}..."
 
-# Run compleasm
-compleasm run \
-  -a ${genome} \
-  -o ${genome_name}_compleasm \
-  -l LINEAGE \  # Replace with actual lineage (e.g., metazoa_odb10)
-  -t ${SLURM_CPUS_PER_TASK}
+  compleasm run \
+    -a ${genome} \
+    -o ${genome_name}_compleasm \
+    -l LINEAGE \
+    -t ${SLURM_CPUS_PER_TASK}
+done < genome_list.txt
 ```
 
-Submit with: `sbatch compleasm_array.job`
+Submit with: `sbatch run_compleasm.job`
+
+Note: This runs genomes sequentially, but each genome analysis uses all CPUs for parallel processing.
 
 #### For PBS:
 
 ```bash
 #!/bin/bash
-#PBS -N compleasm_array
-#PBS -t 1-N  # Replace N with number of genomes
-#PBS -l nodes=1:ppn=4
-#PBS -l mem=24gb
-#PBS -l walltime=24:00:00
+#PBS -N compleasm_serial
+#PBS -l nodes=1:ppn=THREADS  # Replace with available CPUs
+#PBS -l mem=96gb  # Adjust based on ppn × 6GB
+#PBS -l walltime=72:00:00
 
 cd $PBS_O_WORKDIR
 source ~/.bashrc
@@ -348,17 +410,20 @@ conda activate phylo  # Use unified environment
 
 mkdir -p logs
 
-genome=$(sed -n "${PBS_ARRAYID}p" genome_list.txt)
-genome_name=$(basename ${genome} .fasta)
+# Run compleasm serially for each genome
+while read genome; do
+  genome_name=$(basename ${genome} .fasta)
+  echo "Processing ${genome_name}..."
 
-compleasm run \
-  -a ${genome} \
-  -o ${genome_name}_compleasm \
-  -l LINEAGE \
-  -t 4
+  compleasm run \
+    -a ${genome} \
+    -o ${genome_name}_compleasm \
+    -l LINEAGE \
+    -t $PBS_NUM_PPN
+done < genome_list.txt
 ```
 
-Submit with: `qsub compleasm_array.job`
+Submit with: `qsub run_compleasm.job`
 
 #### For Local Machine:
 
@@ -366,6 +431,10 @@ Submit with: `qsub compleasm_array.job`
 #!/bin/bash
 source ~/.bashrc
 conda activate phylo  # Use unified environment
+
+# Detect available CPU threads
+THREADS=$(nproc)
+echo "Using ${THREADS} CPU threads per genome"
 
 while read genome; do
   genome_name=$(basename ${genome} .fasta)
@@ -375,7 +444,7 @@ while read genome; do
     -a ${genome} \
     -o ${genome_name}_compleasm \
     -l LINEAGE \
-    -t 4
+    -t ${THREADS}
 done < genome_list.txt
 ```
 
@@ -779,34 +848,25 @@ iqtree2 \
 
 #### Part 8D: ASTRAL Species Tree
 
-**ASTRAL requires Java** (usually available on HPC systems). If not available, install via conda:
-```bash
-conda install -n phylo -c conda-forge openjdk
-```
+**ASTRAL is already installed** in the unified conda environment (as `astral-tree`) along with Java (openjdk).
 
-**Download and run ASTRAL:**
+**Run ASTRAL:**
 ```bash
+# Activate the conda environment
+conda activate phylo
+
 # Concatenate all gene trees
 cat trimmed_aa/*.treefile > all_gene_trees.tre
 
-# Download ASTRAL (small Java program)
-wget https://github.com/smirarab/ASTRAL/archive/refs/tags/v5.7.8.tar.gz
-tar -xzf v5.7.8.tar.gz
-cd ASTRAL-5.7.8/
-unzip Astral.5.7.8.zip
-cd ..
-
-# Run ASTRAL (fast, can run interactively or as a job)
-java -jar ASTRAL-5.7.8/Astral/astral.5.7.8.jar \
-  -i all_gene_trees.tre \
-  -o astral_species_tree.tre
+# Run ASTRAL directly (installed via conda as astral-tree)
+astral -i all_gene_trees.tre -o astral_species_tree.tre
 
 echo "Completed! Results:"
 echo "  Concatenated ML tree: concatenated_ML_tree.treefile"
 echo "  Species tree: astral_species_tree.tre"
 ```
 
-**Note:** ASTRAL is very fast and typically doesn't need HPC submission unless you have thousands of taxa.
+**Note:** ASTRAL is very fast and typically doesn't need HPC submission unless you have thousands of taxa. The conda package `astral-tree` provides the `astral` command directly.
 
 ---
 
