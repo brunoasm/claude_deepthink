@@ -182,7 +182,7 @@ if [ "${SCRIPT_CHOICE}" = "1" ]; then
     echo "Using predownloaded Aliscore/ALICUT scripts..."
 
     # Download predownloaded scripts from GitHub repository
-    GITHUB_BASE="https://github.com/brunoasm/my_claude_skills/raw/main/phylo_from_buscos/scripts/predownloaded_aliscore_alicut"
+    GITHUB_BASE="https://raw.githubusercontent.com/brunoasm/my_claude_skills/main/phylo_from_buscos/scripts/predownloaded_aliscore_alicut"
     if wget -q "${GITHUB_BASE}/Aliscore.02.2.pl" -O scripts/Aliscore.02.2.pl && \
        wget -q "${GITHUB_BASE}/ALICUT_V2.31.pl" -O scripts/ALICUT_V2.31.pl && \
        wget -q "${GITHUB_BASE}/Aliscore_module.pm" -O scripts/Aliscore_module.pm; then
