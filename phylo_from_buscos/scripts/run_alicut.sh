@@ -155,7 +155,7 @@ fi
 echo "Found List file: ${LIST_FILE}"
 
 # Find original FASTA file
-FASTA_FILE=$(ls *.fas *.fasta 2>/dev/null | head -n 1)
+FASTA_FILE=$(find . -maxdepth 1 \( -name "*.fas" -o -name "*.fasta" \) -type f | head -n 1 | sed 's|^\./||')
 if [ -z "${FASTA_FILE}" ]; then
     echo "ERROR: No FASTA alignment file found (*.fas or *.fasta)"
     echo "ALICUT requires the original alignment file in the same directory as List file"
