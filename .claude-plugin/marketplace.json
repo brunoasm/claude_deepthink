@@ -24,7 +24,8 @@
       "source": "./",
       "strict": false,
       "skills": [
-        "./phylo_from_buscos"
+        "./phylo_from_buscos",
+        "./biogeobears"
       ]
     }
   ]

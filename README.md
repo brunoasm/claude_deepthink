@@ -46,6 +46,11 @@ Generates complete phylogenomic workflows from genome assemblies using BUSCO/com
 
 [View detailed documentation →](./phylo_from_buscos/README.md)
 
+#### biogeobears
+Sets up phylogenetic biogeographic analyses using BioGeoBEARS in R. Validates and reformats input files (phylogenetic tree and geographic distribution data), generates organized analysis folders with RMarkdown scripts, guides parameter selection, and produces publication-ready visualizations of ancestral range reconstructions. Compares multiple biogeographic models (DEC, DIVALIKE, BAYAREALIKE with/without founder-event speciation).
+
+[View detailed documentation →](./biogeobears/README.md)
+
 ## Installation
 
 ### For Claude Code (Recommended)

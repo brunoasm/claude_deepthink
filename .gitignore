@@ -16,3 +16,6 @@ Thumbs.db
 
 # Skill development reference materials
 phylo_from_buscos/info_to_craft_skill/
+
+# Python files
+__pycache__
