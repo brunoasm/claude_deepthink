@@ -49,6 +49,7 @@ Usage: $0 [alignment.fas] [options]
 Run Aliscore to identify randomly similar sequence sections in alignments.
 
 Options:
+  -d DIR     Base output directory for all Aliscore results (default: aliscore_output)
   -w INT     Window size for sliding window analysis (default: 4)
   -r INT     Number of random sequence pairs to compare (default: 4*N taxa)
   -N         Treat gaps as ambiguous characters (recommended for amino acids)
@@ -62,11 +63,14 @@ Array Job Mode:
   Create locus_list.txt with: ls *.fas > locus_list.txt
 
 Examples:
-  # Basic run with defaults
+  # Basic run with defaults (outputs to aliscore_output/)
   bash run_aliscore.sh alignment.fas
 
   # Amino acid sequences with gaps as ambiguous
   bash run_aliscore.sh protein_alignment.fas -N
+
+  # Custom output directory
+  bash run_aliscore.sh alignment.fas -d my_aliscore_results
 
   # Custom window size and random pairs
   bash run_aliscore.sh alignment.fas -w 6 -r 100
@@ -78,7 +82,7 @@ Examples:
   ls aligned_aa/*.fas > locus_list.txt
   sbatch --array=1-\$(wc -l < locus_list.txt) run_aliscore_array.job
 
-Output Files:
+Output Files (in aliscore_output/aliscore_[alignment]/):
   - [alignment]_List_random.txt   : Positions identified as RSS (for ALICUT)
   - [alignment]_Profile_random.txt: Quality profile for each position
   - [alignment].svg               : Visual plot of scoring profiles
@@ -95,6 +99,7 @@ EOF
 # Parse command line arguments
 ALIGNMENT=""
 ALISCORE_OPTS=""
+BASE_OUTPUT_DIR="aliscore_output"
 
 if [ $# -eq 0 ]; then
     usage
@@ -150,6 +155,10 @@ while [ $# -gt 0 ]; do
         -h|--help)
             usage
             ;;
+        -d|--output-dir)
+            BASE_OUTPUT_DIR="$2"
+            shift 2
+            ;;
         -w)
             ALISCORE_OPTS="${ALISCORE_OPTS} -w $2"
             shift 2
@@ -189,8 +198,9 @@ done
 ALIGNMENT_NAME=$(basename "${ALIGNMENT}" .fas)
 ALIGNMENT_NAME=$(basename "${ALIGNMENT_NAME}" .fasta)
 
-# Create output directory for this alignment
-OUTPUT_DIR="aliscore_${ALIGNMENT_NAME}"
+# Create base output directory and specific directory for this alignment
+mkdir -p "${BASE_OUTPUT_DIR}"
+OUTPUT_DIR="${BASE_OUTPUT_DIR}/aliscore_${ALIGNMENT_NAME}"
 mkdir -p "${OUTPUT_DIR}"
 
 # Copy alignment to output directory
