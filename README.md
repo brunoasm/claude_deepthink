@@ -91,24 +91,26 @@ All installed skills will be automatically available in Claude Code.
 ### For Claude.ai (Web/Mobile Apps)
 
 1. Navigate to the specific skill directory (e.g., `think_deeply`)
-2. Create a ZIP file containing the skill's files (`SKILL.md` and `README.md`)
+2. Create a ZIP file containing the skill's files (that is, all the contents of the folder)
 3. Go to Claude.ai Settings > Capabilities > Skills
 4. Click "Upload Skill" and select the ZIP file
 5. Enable the skill
 
 ### For Claude API
 
-Place the `SKILL.md` file from each skill directory in your skills configuration according to your API integration setup. Consult the Claude API documentation for skill configuration details.
+Place the `SKILL.md` file and associated files from each skill directory in your skills configuration according to your API integration setup. Consult the Claude API documentation for skill configuration details.
 
 ## Skill Structure
 
-Each skill in this repository follows this structure:
+Each skill in this repository follows this minimal structure:
 
 ```
 skill_name/
 ├── SKILL.md          # The skill definition (required for Claude)
 └── README.md         # Documentation and usage examples
 ```
+
+Other accesoty files may be available for each skill (e. g. scripts, detailed references, etc)
 
 ## Resources
 
