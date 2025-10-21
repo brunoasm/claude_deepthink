@@ -357,11 +357,118 @@ ls /path/to/genomes/*.fasta > genome_list.txt
 
 **Generate scheduler-specific script:**
 
-**IMPORTANT:** compleasm creates temporary files (e.g., `[lineage].tmp`) that prevent parallel execution of multiple genomes. Therefore, compleasm jobs must run **serially** (one at a time), but each job should use **all available CPU threads** for maximum efficiency.
+**IMPORTANT Threading Considerations:**
+
+Compleasm has two main phases:
+1. **Lineage database download** (only happens on first run): Single-threaded, downloads BUSCO dataset from https://busco-data.ezlab.org/v5/data
+2. **Computational analysis**: Multi-threaded (miniprot alignment + hmmsearch), scales well with available cores
+
+**Optimal Parallelization Strategy:**
+- **First genome**: Run alone with ALL available threads to download the lineage database and complete the analysis
+- **Remaining genomes**: Run in parallel batches with optimized thread allocation per genome
+
+**Threading Guidelines (based on compleasm/miniprot performance):**
+- Miniprot (the core alignment engine) scales well up to ~16-32 threads per genome
+- Beyond 32 threads per genome, diminishing returns occur
+- For CPU-bound tasks like protein-to-genome alignment, using physical cores is most efficient
+
+**Recommended Thread Allocation:**
+
+| Total Cores | First Genome | Subsequent Genomes | Concurrent Jobs | Threads/Job |
+|-------------|--------------|-------------------|-----------------|-------------|
+| 8           | 8 threads    | 8 threads (serial)| 1               | 8           |
+| 16          | 16 threads   | 8 threads         | 2               | 8           |
+| 32          | 32 threads   | 8 threads         | 4               | 8           |
+| 64          | 64 threads   | 16 threads        | 4               | 16          |
+| 128         | 128 threads  | 16-32 threads     | 4-8             | 16          |
+
+The table above balances throughput and per-genome efficiency. For systems with >64 cores, running 4-8 concurrent genomes with 16 threads each provides excellent performance.
 
 Then provide the appropriate script based on user's computing environment:
 
 #### For SLURM:
+
+**Option A: Optimized Parallel Workflow (Recommended)**
+
+This workflow runs the first genome alone to download the lineage database, then processes remaining genomes in parallel:
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=compleasm_first
+#SBATCH --cpus-per-task=TOTAL_THREADS  # Replace with total available CPUs (e.g., 64)
+#SBATCH --mem-per-cpu=6G
+#SBATCH --time=24:00:00
+#SBATCH --output=logs/compleasm_first.%j.out
+#SBATCH --error=logs/compleasm_first.%j.err
+
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p logs
+
+# Process FIRST genome only (downloads lineage database)
+first_genome=$(head -n 1 genome_list.txt)
+genome_name=$(basename ${first_genome} .fasta)
+echo "Processing first genome: ${genome_name} with ${SLURM_CPUS_PER_TASK} threads..."
+echo "This will download the BUSCO lineage database for subsequent runs."
+
+compleasm run \
+  -a ${first_genome} \
+  -o ${genome_name}_compleasm \
+  -l LINEAGE \
+  -t ${SLURM_CPUS_PER_TASK}
+
+echo "First genome complete! Lineage database is now cached."
+echo "Submit the parallel job for remaining genomes: sbatch run_compleasm_parallel.job"
+```
+
+Save as `run_compleasm_first.job` and submit: `sbatch run_compleasm_first.job`
+
+After the first job completes, submit the parallel job:
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=compleasm_parallel
+#SBATCH --array=2-NUM_GENOMES  # Start from genome 2 (first genome already processed)
+#SBATCH --cpus-per-task=THREADS_PER_JOB  # e.g., 16 for 64-core system with 4 concurrent jobs
+#SBATCH --mem-per-cpu=6G
+#SBATCH --time=48:00:00
+#SBATCH --output=logs/compleasm.%A_%a.out
+#SBATCH --error=logs/compleasm.%A_%a.err
+
+source ~/.bashrc
+conda activate phylo
+
+# Get genome for this array task (skipping the first one)
+genome=$(sed -n "${SLURM_ARRAY_TASK_ID}p" genome_list.txt)
+genome_name=$(basename ${genome} .fasta)
+
+echo "Processing ${genome_name} with ${SLURM_CPUS_PER_TASK} threads..."
+
+compleasm run \
+  -a ${genome} \
+  -o ${genome_name}_compleasm \
+  -l LINEAGE \
+  -t ${SLURM_CPUS_PER_TASK}
+```
+
+Save as `run_compleasm_parallel.job` and submit after first job completes: `sbatch run_compleasm_parallel.job`
+
+**Setup instructions:**
+1. Count your genomes: `num_genomes=$(wc -l < genome_list.txt); echo $num_genomes`
+2. Edit `run_compleasm_first.job`: Replace `TOTAL_THREADS` with all available cores
+3. Edit `run_compleasm_parallel.job`:
+   - Replace `NUM_GENOMES` with the count from step 1
+   - Replace `THREADS_PER_JOB` based on the threading table above (e.g., 16 for 64-core system)
+   - Replace `LINEAGE` with your BUSCO lineage dataset
+
+**Example for 64-core system with 20 genomes:**
+- First job: 64 threads for genome 1
+- Parallel job: `--array=2-20 --cpus-per-task=16` (4 concurrent genomes × 16 threads = 64 cores)
+
+**Option B: Simple Serial Workflow**
+
+If you prefer simplicity over performance optimization, use this serial approach:
 
 ```bash
 #!/bin/bash
@@ -373,9 +480,8 @@ Then provide the appropriate script based on user's computing environment:
 #SBATCH --error=logs/compleasm.%j.err
 
 source ~/.bashrc
-conda activate phylo  # Use unified environment
+conda activate phylo
 
-# Create logs directory if it doesn't exist
 mkdir -p logs
 
 # Run compleasm serially for each genome, using all available threads
@@ -391,11 +497,84 @@ while read genome; do
 done < genome_list.txt
 ```
 
-Submit with: `sbatch run_compleasm.job`
+Submit with: `sbatch run_compleasm_serial.job`
 
-Note: This runs genomes sequentially, but each genome analysis uses all CPUs for parallel processing.
+Note: This runs genomes sequentially (one at a time), using all CPUs for each genome. Simpler but slower for many genomes.
 
 #### For PBS:
+
+**Option A: Optimized Parallel Workflow (Recommended)**
+
+First, process the first genome alone:
+
+```bash
+#!/bin/bash
+#PBS -N compleasm_first
+#PBS -l nodes=1:ppn=TOTAL_THREADS  # Replace with total available CPUs (e.g., 64)
+#PBS -l mem=384gb  # Adjust based on ppn × 6GB
+#PBS -l walltime=24:00:00
+
+cd $PBS_O_WORKDIR
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p logs
+
+# Process FIRST genome only (downloads lineage database)
+first_genome=$(head -n 1 genome_list.txt)
+genome_name=$(basename ${first_genome} .fasta)
+echo "Processing first genome: ${genome_name} with $PBS_NUM_PPN threads..."
+echo "This will download the BUSCO lineage database for subsequent runs."
+
+compleasm run \
+  -a ${first_genome} \
+  -o ${genome_name}_compleasm \
+  -l LINEAGE \
+  -t $PBS_NUM_PPN
+
+echo "First genome complete! Lineage database is now cached."
+echo "Submit the parallel job for remaining genomes: qsub run_compleasm_parallel.job"
+```
+
+Save as `run_compleasm_first.job` and submit: `qsub run_compleasm_first.job`
+
+After the first job completes, submit the parallel array job:
+
+```bash
+#!/bin/bash
+#PBS -N compleasm_parallel
+#PBS -t 2-NUM_GENOMES  # Start from genome 2 (first genome already processed)
+#PBS -l nodes=1:ppn=THREADS_PER_JOB  # e.g., 16 for 64-core system
+#PBS -l mem=96gb  # Adjust based on ppn × 6GB
+#PBS -l walltime=48:00:00
+
+cd $PBS_O_WORKDIR
+source ~/.bashrc
+conda activate phylo
+
+# Get genome for this array task
+genome=$(sed -n "${PBS_ARRAYID}p" genome_list.txt)
+genome_name=$(basename ${genome} .fasta)
+
+echo "Processing ${genome_name} with $PBS_NUM_PPN threads..."
+
+compleasm run \
+  -a ${genome} \
+  -o ${genome_name}_compleasm \
+  -l LINEAGE \
+  -t $PBS_NUM_PPN
+```
+
+Save as `run_compleasm_parallel.job` and submit: `qsub run_compleasm_parallel.job`
+
+**Setup instructions:**
+1. Count your genomes: `num_genomes=$(wc -l < genome_list.txt); echo $num_genomes`
+2. Edit `run_compleasm_first.job`: Replace `TOTAL_THREADS` with all available cores
+3. Edit `run_compleasm_parallel.job`:
+   - Replace `NUM_GENOMES` with the count from step 1
+   - Replace `THREADS_PER_JOB` based on the threading table above
+
+**Option B: Simple Serial Workflow**
 
 ```bash
 #!/bin/bash
@@ -406,7 +585,7 @@ Note: This runs genomes sequentially, but each genome analysis uses all CPUs for
 
 cd $PBS_O_WORKDIR
 source ~/.bashrc
-conda activate phylo  # Use unified environment
+conda activate phylo
 
 mkdir -p logs
 
@@ -423,18 +602,104 @@ while read genome; do
 done < genome_list.txt
 ```
 
-Submit with: `qsub run_compleasm.job`
+Submit with: `qsub run_compleasm_serial.job`
 
 #### For Local Machine:
+
+**Option A: Optimized Parallel Workflow (Recommended for multi-core systems)**
+
+First, run the first genome alone to download the lineage database:
+
+```bash
+#!/bin/bash
+# run_compleasm_first.sh
+source ~/.bashrc
+conda activate phylo
+
+# User-specified total CPU threads
+TOTAL_THREADS=TOTAL_THREADS  # Replace with total cores you want to use (e.g., 16, 32, 64)
+echo "Processing first genome with ${TOTAL_THREADS} CPU threads to download lineage database..."
+
+# Process FIRST genome only
+first_genome=$(head -n 1 genome_list.txt)
+genome_name=$(basename ${first_genome} .fasta)
+echo "Processing: ${genome_name}"
+
+compleasm run \
+  -a ${first_genome} \
+  -o ${genome_name}_compleasm \
+  -l LINEAGE \
+  -t ${TOTAL_THREADS}
+
+echo ""
+echo "First genome complete! Lineage database is now cached."
+echo "Now run the parallel script for remaining genomes: bash run_compleasm_parallel.sh"
+```
+
+Run with: `bash run_compleasm_first.sh`
+
+After the first genome completes, process remaining genomes in parallel using GNU parallel:
+
+```bash
+#!/bin/bash
+# run_compleasm_parallel.sh
+source ~/.bashrc
+conda activate phylo
+
+# Threading configuration (adjust based on your system)
+TOTAL_THREADS=TOTAL_THREADS      # Total cores to use (e.g., 64)
+THREADS_PER_JOB=THREADS_PER_JOB  # Threads per genome (e.g., 16)
+CONCURRENT_JOBS=$((TOTAL_THREADS / THREADS_PER_JOB))  # Calculated automatically
+
+echo "Configuration:"
+echo "  Total threads:      ${TOTAL_THREADS}"
+echo "  Threads per genome: ${THREADS_PER_JOB}"
+echo "  Concurrent genomes: ${CONCURRENT_JOBS}"
+echo ""
+
+# Process remaining genomes (skip first one) in parallel
+tail -n +2 genome_list.txt | parallel -j ${CONCURRENT_JOBS} '
+  genome_name=$(basename {} .fasta)
+  echo "Processing ${genome_name} with THREADS_PER_JOB threads..."
+
+  compleasm run \
+    -a {} \
+    -o ${genome_name}_compleasm \
+    -l LINEAGE \
+    -t THREADS_PER_JOB
+'
+
+echo ""
+echo "All genomes processed!"
+```
+
+Run with: `bash run_compleasm_parallel.sh`
+
+**Setup instructions:**
+1. Edit `run_compleasm_first.sh`: Replace `TOTAL_THREADS` with all cores you want to use
+2. Edit `run_compleasm_parallel.sh`:
+   - Replace `TOTAL_THREADS` with the same value
+   - Replace `THREADS_PER_JOB` based on the threading table above
+   - The script will automatically calculate concurrent jobs
+3. Replace `LINEAGE` with your BUSCO lineage dataset in both scripts
+
+**Example for 64-core system:**
+- First script: `TOTAL_THREADS=64`
+- Parallel script: `TOTAL_THREADS=64`, `THREADS_PER_JOB=16` → 4 concurrent genomes
+
+**Option B: Simple Serial Workflow**
+
+If you prefer simplicity or don't have GNU parallel installed:
 
 ```bash
 #!/bin/bash
 source ~/.bashrc
-conda activate phylo  # Use unified environment
+conda activate phylo
 
 # User-specified CPU threads (replace THREADS with the number specified by user)
 THREADS=THREADS  # Replace with user-specified value (e.g., 8, 16, 32)
-echo "Using ${THREADS} CPU threads per genome"
+echo "Using ${THREADS} CPU threads per genome (processing serially)"
+echo ""
 
 while read genome; do
   genome_name=$(basename ${genome} .fasta)
@@ -445,12 +710,16 @@ while read genome; do
     -o ${genome_name}_compleasm \
     -l LINEAGE \
     -t ${THREADS}
+
+  echo ""
 done < genome_list.txt
+
+echo "All genomes processed!"
 ```
 
-Run with: `bash run_compleasm.sh`
+Run with: `bash run_compleasm_serial.sh`
 
-**Note:** Replace `THREADS` with the number of CPU cores the user wants to allocate (not all available cores).
+**Note:** Replace `THREADS` with the number of CPU cores you want to allocate. This processes genomes one at a time (simpler but slower).
 
 ---
 
@@ -1023,6 +1292,8 @@ Provide users with summary of outputs:
 - **Always end with STEP 9**: Generate the `METHODS_PARAGRAPH.md` file customized to their workflow
 - **Use unified environment by default**: All scripts should use `conda activate phylo` unless user explicitly requests separate environments
 - **Always ask about CPU allocation**: Never auto-detect CPU cores (e.g., using `nproc`). Always ask the user how many cores they want to use and use that value in scripts
+- **Recommend optimized compleasm workflow**: For users with multiple genomes and adequate cores (≥16), recommend the two-phase approach (first genome solo, then parallel) over the simple serial workflow
+- **Explain the optimization**: Help users understand why running the first genome separately improves resource utilization
 - **Be clear and pedagogical**: Explain why each step is necessary
 - **Provide complete, ready-to-run scripts**: Users should copy-paste and run without manual downloads
 - **Adapt to user's environment**: Always generate scheduler-specific scripts (SLURM/PBS/local)
@@ -1044,10 +1315,12 @@ Provide users with summary of outputs:
 7. **Always adapt scripts** to user's specific scheduler (SLURM/PBS/local/cloud)
 8. **Replace placeholders**: N (array size), LINEAGE, NUM_LOCI, THREADS, paths
 9. **Never auto-detect CPU cores**: Always ask user how many cores to use, never use `nproc` or similar auto-detection
-10. **Provide clear directory structure**: Help users organize their workflow
-11. **Estimate run times**: Use `REFERENCE.md` resource table
-12. **Recommend checkpoints**: Suggest inspecting outputs after each major step
-13. **Complete citations provided**: All references with DOIs included in methods paragraph
+10. **Compleasm optimization**: For ≥2 genomes and ≥16 cores, recommend the two-phase approach (Option A: first genome solo, then parallel) for better resource utilization
+11. **Threading guidelines**: Use the threading allocation table in STEP 2 to optimize concurrent jobs and threads per job based on available cores
+12. **Provide clear directory structure**: Help users organize their workflow
+13. **Estimate run times**: Use `REFERENCE.md` resource table
+14. **Recommend checkpoints**: Suggest inspecting outputs after each major step
+15. **Complete citations provided**: All references with DOIs included in methods paragraph
 
 ---
 
