@@ -32,25 +32,19 @@ Claude skills are custom instructions that modify how Claude behaves in specific
 
 ## Available Skills
 
-### thinking-deeply
+### General Skills
 
-**Purpose:** Prevents automatic agreement or disagreement by enforcing deeper analysis and multi-perspective thinking.
-
-**When it activates:**
-- Confirmation-seeking questions ("Is X the best?")
-- Leading statements ("Obviously A is better than B")
-- Binary choice questions ("Which is better, X or Y?")
-- Any situation prompting quick validation
-
-**What it does:**
-- Reframes questions to expose underlying concerns
-- Presents multiple valid perspectives
-- Identifies context-dependent factors
-- Provides nuanced, well-reasoned recommendations
-
-**Use case:** Get more thorough analysis of technical decisions, architectural choices, framework comparisons, and any situation where you want Claude to think critically rather than reflexively agree.
+#### thinking-deeply
+Enforces deeper analysis and multi-perspective thinking instead of automatic agreement/disagreement. Activates on confirmation-seeking questions, leading statements, and binary choices to provide nuanced, well-reasoned recommendations.
 
 [View detailed documentation →](./think_deeply/README.md)
+
+### Bioinformatics Skills
+
+#### phylo_from_buscos
+Generates complete phylogenomic workflows from genome assemblies using BUSCO/compleasm-based single-copy orthologs. Supports NCBI accessions, multiple scheduler types (SLURM, PBS, cloud, local), and produces both concatenated and coalescent phylogenies with quality control.
+
+[View detailed documentation →](./phylo_from_buscos/README.md)
 
 ## Installation
 
