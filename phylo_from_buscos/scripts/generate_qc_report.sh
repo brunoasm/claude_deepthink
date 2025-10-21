@@ -20,18 +20,27 @@ for dir in *_compleasm; do
   summary="${dir}/summary.txt"
 
   if [ -f "${summary}" ]; then
-    # Parse completeness statistics
-    complete=$(grep "Complete" "${summary}" | head -1 | awk '{print $2}')
-    fragmented=$(grep "Fragmented" "${summary}" | awk '{print $2}')
-    duplicated=$(grep "Duplicated" "${summary}" | awk '{print $2}')
-    missing=$(grep "Missing" "${summary}" | awk '{print $2}')
+    # Parse completeness statistics from compleasm format
+    # compleasm uses: S: (single-copy), D: (duplicated), F: (fragmented), M: (missing)
+    # Format: "S:80.93%, 2283" where we need the count (2283)
+    complete=$(grep "^S:" "${summary}" | awk -F',' '{print $2}' | tr -d ' ')
+    duplicated=$(grep "^D:" "${summary}" | awk -F',' '{print $2}' | tr -d ' ')
+    fragmented=$(grep "^F:" "${summary}" | awk -F',' '{print $2}' | tr -d ' ')
+    missing=$(grep "^M:" "${summary}" | awk -F',' '{print $2}' | tr -d ' ')
 
-    # Calculate completeness percentage
+    # Check if all values were successfully extracted
+    if [ -z "${complete}" ] || [ -z "${fragmented}" ] || [ -z "${missing}" ]; then
+      echo "Warning: Could not parse statistics for ${genome}" >&2
+      continue
+    fi
+
+    # Calculate completeness percentage (Complete / Total * 100)
+    total=$((complete + duplicated + fragmented + missing))
     if command -v bc &> /dev/null; then
-      completeness=$(echo "scale=2; ${complete} / (${complete} + ${fragmented} + ${missing}) * 100" | bc)
+      completeness=$(echo "scale=2; (${complete} + ${duplicated}) / ${total} * 100" | bc)
     else
       # Fallback if bc not available
-      completeness=$(awk "BEGIN {printf \"%.2f\", ${complete} / (${complete} + ${fragmented} + ${missing}) * 100}")
+      completeness=$(awk "BEGIN {printf \"%.2f\", (${complete} + ${duplicated}) / ${total} * 100}")
     fi
 
     echo "${genome},${complete},${fragmented},${duplicated},${missing},${completeness}" >> "${OUTPUT_FILE}"
