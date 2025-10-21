@@ -929,13 +929,13 @@ After all Aliscore jobs complete:
 
 ```bash
 # Step 2: ALICUT array job or batch processing
-for dir in aliscore_*/; do
+for dir in aliscore_output/aliscore_*/; do
     bash ../scripts/run_alicut.sh "${dir}" -s
 done
 
 # Collect trimmed alignments
 mkdir -p ../trimmed_aa
-for dir in aliscore_*/; do
+for dir in aliscore_output/aliscore_*/; do
     trimmed=$(find "${dir}" -name "ALICUT_*.fas")
     if [ -n "${trimmed}" ]; then
         locus=$(basename "${dir}" | sed 's/aliscore_//')
@@ -955,7 +955,7 @@ done
 
 **Understanding Outputs:**
 
-Each `aliscore_[locus]/` directory contains:
+Each `aliscore_output/aliscore_[locus]/` directory contains:
 - `*_List_random.txt` - Positions identified as RSS (input for ALICUT)
 - `*_Profile_random.txt` - Quality scores for each alignment position
 - `*.svg` - Visual plot of scoring profiles

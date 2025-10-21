@@ -33,6 +33,7 @@ Arguments:
 
 Options:
   -o DIR         Output directory for trimmed alignments (default: aliscore_alicut_trimmed)
+  -d DIR         Base directory for Aliscore outputs (default: aliscore_output)
   -w INT         Aliscore window size (default: 4)
   -r INT         Aliscore random pairs (default: 4*N)
   -N             Aliscore: treat gaps as ambiguous (recommended for AA)
@@ -52,9 +53,9 @@ Examples:
   bash run_aliscore_alicut_batch.sh aligned_rrna/ --remain-stems
 
 Output:
-  - aliscore_[locus]/          : Individual Aliscore results per locus
-  - aliscore_alicut_trimmed/   : Final trimmed alignments
-  - trimming_summary.txt       : Statistics for all loci
+  - aliscore_output/aliscore_[locus]/  : Individual Aliscore results per locus
+  - aliscore_alicut_trimmed/           : Final trimmed alignments
+  - aliscore_alicut_trimmed/trimming_summary.txt : Statistics for all loci
 
 EOF
     exit 0
@@ -63,6 +64,7 @@ EOF
 # Default parameters
 ALIGNMENT_DIR=""
 OUTPUT_DIR="aliscore_alicut_trimmed"
+ALISCORE_BASE_DIR="aliscore_output"
 ALISCORE_OPTS=""
 ALICUT_OPTS="-s"  # Silent mode by default
 
@@ -87,6 +89,10 @@ while [ $# -gt 0 ]; do
             ;;
         -o|--output)
             OUTPUT_DIR="$2"
+            shift 2
+            ;;
+        -d|--aliscore-dir)
+            ALISCORE_BASE_DIR="$2"
             shift 2
             ;;
         -w)
@@ -170,7 +176,7 @@ for ALIGNMENT in "${ALIGNMENTS[@]}"; do
     echo ""
     echo "Step 1/2: Running Aliscore..."
 
-    if bash "${RUN_ALISCORE}" "${ALIGNMENT}" ${ALISCORE_OPTS}; then
+    if bash "${RUN_ALISCORE}" "${ALIGNMENT}" -d "${ALISCORE_BASE_DIR}" ${ALISCORE_OPTS}; then
         echo "Aliscore completed for ${LOCUS}"
     else
         echo "ERROR: Aliscore failed for ${LOCUS}"
@@ -182,7 +188,7 @@ for ALIGNMENT in "${ALIGNMENTS[@]}"; do
     echo ""
     echo "Step 2/2: Running ALICUT..."
 
-    ALISCORE_DIR="aliscore_${LOCUS}"
+    ALISCORE_DIR="${ALISCORE_BASE_DIR}/aliscore_${LOCUS}"
 
     if [ ! -d "${ALISCORE_DIR}" ]; then
         echo "ERROR: Aliscore output directory not found: ${ALISCORE_DIR}"

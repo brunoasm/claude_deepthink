@@ -445,7 +445,7 @@ After running Aliscore + ALICUT, evaluate trimming statistics:
 cat trimmed_aa/trimming_summary.txt
 
 # Check specific locus
-cd aliscore_[locus]
+cd aliscore_output/aliscore_[locus]
 cat ALICUT_info.xls
 ```
 
@@ -462,7 +462,7 @@ cat ALICUT_info.xls
 For RNA secondary structure alignments, preserves paired stem positions.
 
 ```bash
-bash scripts/run_alicut.sh aliscore_16S/ -r -s
+bash scripts/run_alicut.sh aliscore_output/aliscore_16S/ -r -s
 ```
 
 **When to use:** rRNA genes (16S, 18S, 28S) with structure annotation
@@ -473,7 +473,7 @@ Translates amino acid RSS positions to nucleotide triplets (back-translation).
 
 ```bash
 # After running Aliscore on protein alignment
-bash scripts/run_alicut.sh aliscore_protein/ -c -s
+bash scripts/run_alicut.sh aliscore_output/aliscore_protein/ -c -s
 ```
 
 **When to use:**
@@ -485,7 +485,7 @@ bash scripts/run_alicut.sh aliscore_protein/ -c -s
 Removes only 3rd codon positions of identified RSS.
 
 ```bash
-bash scripts/run_alicut.sh aliscore_protein/ -c -3 -s
+bash scripts/run_alicut.sh aliscore_output/aliscore_protein/ -c -3 -s
 ```
 
 **When to use:**
@@ -514,7 +514,7 @@ ls *.fas > locus_list.txt
 # Submit array job (see SKILL.md for templates)
 
 # Step 2: After Aliscore completes, batch process ALICUT
-for dir in aliscore_*/; do
+for dir in aliscore_output/aliscore_*/; do
     bash ../scripts/run_alicut.sh "${dir}" -s
 done
 ```
@@ -540,7 +540,7 @@ For critical loci, view the SVG plots:
 
 ```bash
 # Open in browser
-firefox aliscore_[locus]/*svg
+firefox aliscore_output/aliscore_[locus]/*svg
 ```
 
 Look for:
