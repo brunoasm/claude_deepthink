@@ -60,7 +60,7 @@ When a user requests phylogeny generation, **ALWAYS start by asking these questi
    - If separate: individual conda environments per step (advanced users only)
 
 5. **Resource Constraints**
-   - Available CPUs per job?
+   - How many CPU cores/threads would you like to use per job? (Ask user to specify, do not auto-detect)
    - Available memory (RAM)?
    - Maximum walltime?
    - See `REFERENCE.md` for resource recommendations
@@ -432,8 +432,8 @@ Submit with: `qsub run_compleasm.job`
 source ~/.bashrc
 conda activate phylo  # Use unified environment
 
-# Detect available CPU threads
-THREADS=$(nproc)
+# User-specified CPU threads (replace THREADS with the number specified by user)
+THREADS=THREADS  # Replace with user-specified value (e.g., 8, 16, 32)
 echo "Using ${THREADS} CPU threads per genome"
 
 while read genome; do
@@ -449,6 +449,8 @@ done < genome_list.txt
 ```
 
 Run with: `bash run_compleasm.sh`
+
+**Note:** Replace `THREADS` with the number of CPU cores the user wants to allocate (not all available cores).
 
 ---
 
@@ -1020,6 +1022,7 @@ Provide users with summary of outputs:
 - **Always start with STEP 0**: Generate the `setup_phylo_env.sh` script before any workflow steps
 - **Always end with STEP 9**: Generate the `METHODS_PARAGRAPH.md` file customized to their workflow
 - **Use unified environment by default**: All scripts should use `conda activate phylo` unless user explicitly requests separate environments
+- **Always ask about CPU allocation**: Never auto-detect CPU cores (e.g., using `nproc`). Always ask the user how many cores they want to use and use that value in scripts
 - **Be clear and pedagogical**: Explain why each step is necessary
 - **Provide complete, ready-to-run scripts**: Users should copy-paste and run without manual downloads
 - **Adapt to user's environment**: Always generate scheduler-specific scripts (SLURM/PBS/local)
@@ -1039,11 +1042,12 @@ Provide users with summary of outputs:
 5. **No manual downloads required**: Setup script handles all Perl scripts and conda packages
 6. **Methods paragraph customization**: Pre-fill known values and remove unused tool descriptions
 7. **Always adapt scripts** to user's specific scheduler (SLURM/PBS/local/cloud)
-8. **Replace placeholders**: N (array size), LINEAGE, NUM_LOCI, paths
-9. **Provide clear directory structure**: Help users organize their workflow
-10. **Estimate run times**: Use `REFERENCE.md` resource table
-11. **Recommend checkpoints**: Suggest inspecting outputs after each major step
-12. **Complete citations provided**: All references with DOIs included in methods paragraph
+8. **Replace placeholders**: N (array size), LINEAGE, NUM_LOCI, THREADS, paths
+9. **Never auto-detect CPU cores**: Always ask user how many cores to use, never use `nproc` or similar auto-detection
+10. **Provide clear directory structure**: Help users organize their workflow
+11. **Estimate run times**: Use `REFERENCE.md` resource table
+12. **Recommend checkpoints**: Suggest inspecting outputs after each major step
+13. **Complete citations provided**: All references with DOIs included in methods paragraph
 
 ---
 
