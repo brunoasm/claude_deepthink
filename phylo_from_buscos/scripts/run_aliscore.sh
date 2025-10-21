@@ -205,7 +205,7 @@ echo "Options: ${ALISCORE_OPTS}"
 echo "Aliscore script: ${ALISCORE_SCRIPT}"
 
 # Construct and run Aliscore command
-ALISCORE_CMD="perl ${ALISCORE_SCRIPT} -i $(basename ${ALIGNMENT}) ${ALISCORE_OPTS}"
+ALISCORE_CMD="perl -I${SCRIPT_DIR} ${ALISCORE_SCRIPT} -i $(basename ${ALIGNMENT}) ${ALISCORE_OPTS}"
 echo "Command: ${ALISCORE_CMD}"
 
 eval ${ALISCORE_CMD}
