@@ -69,13 +69,13 @@ Install the entire marketplace with both plugin collections:
 
 Install only the plugins you need:
 
-**For general skills only (thinking-deeply):**
+**For general skills only:**
 ```bash
 /plugin marketplace add brunoasm/my_claude_skills
 /plugin install general-skills@brunoasm/my_claude_skills
 ```
 
-**For bioinformatics skills only (busco-phylogeny):**
+**For bioinformatics skills only:**
 ```bash
 /plugin marketplace add brunoasm/my_claude_skills
 /plugin install bioinfo-skills@brunoasm/my_claude_skills
