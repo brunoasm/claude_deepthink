@@ -218,6 +218,7 @@ This unified environment includes:
 - `perl` with BioPerl - Required for Aliscore/ALICUT
 - `parallel` - GNU parallel for batch processing
 - `ncbi-datasets-cli` - For NCBI genome downloads
+- `astral-tree` - For species tree inference
 
 **Important Notes:**
 - Users can choose between predownloaded Aliscore/ALICUT scripts (tested with tutorial) or latest versions from GitHub
