@@ -8,7 +8,6 @@ iqtree \
   -s FcC_supermatrix.fas \
   -spp partition_def.txt \
   -nt 18 \
-  -safe \
   -pre partition_search \
   -m TESTMERGEONLY \
   -mset MODEL_SET \

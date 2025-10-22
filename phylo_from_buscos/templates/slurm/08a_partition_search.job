@@ -15,7 +15,6 @@ iqtree \
   -s FcC_supermatrix.fas \
   -spp partition_def.txt \
   -nt ${SLURM_CPUS_PER_TASK} \
-  -safe \
   -pre partition_search \
   -m TESTMERGEONLY \
   -mset MODEL_SET \
