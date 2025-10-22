@@ -31,8 +31,8 @@ def convert_fcc_to_partition(fcc_file, output_file="partition_def.txt"):
     partitions_written = 0
 
     with open(output_file, 'w') as out:
-        # Skip header line
-        for line in lines[1:]:
+        # Skip first two header lines (FASconCAT INFO and column headers)
+        for line in lines[2:]:
             line = line.strip()
             if line:
                 parts = line.split('\t')
