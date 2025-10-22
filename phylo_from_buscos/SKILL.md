@@ -1958,21 +1958,41 @@ Provide users with summary of outputs:
 
 ## Important Notes
 
+### Mandatory Steps
 1. **STEP 0 is mandatory**: Always generate the environment setup script first
 2. **STEP 9 is mandatory**: Always generate the methods paragraph file at the end
+
+### Environment & Setup
 3. **Unified environment simplifies workflow**: One environment for all tools (compleasm, MAFFT, trimAl, ClipKit, BMGE, IQ-TREE, Perl, GNU parallel)
 4. **Aliscore/ALICUT scripts included**: Predownloaded versions available in `scripts/predownloaded_aliscore_alicut/`
 5. **No manual downloads required**: Setup script handles all Perl scripts and conda packages
-6. **Methods paragraph customization**: Pre-fill known values and remove unused tool descriptions
+6. **Detect computing environment**: Use bash commands to check for `sbatch`, `qsub`, `parallel` before asking questions
+
+### Script Generation
 7. **Always adapt scripts** to user's specific scheduler (SLURM/PBS/local/cloud)
-8. **Replace placeholders**: N (array size), LINEAGE, NUM_LOCI, THREADS, paths
+8. **Replace placeholders**: N (array size), LINEAGE, NUM_LOCI, THREADS, MODEL_SET, paths
 9. **Never auto-detect CPU cores**: Always ask user how many cores to use, never use `nproc` or similar auto-detection
-10. **Compleasm optimization**: For ≥2 genomes and ≥16 cores, recommend the two-phase approach (Option A: first genome solo, then parallel) for better resource utilization
-11. **Threading guidelines**: Use the threading allocation table in STEP 2 to optimize concurrent jobs and threads per job based on available cores
-12. **Provide clear directory structure**: Help users organize their workflow
-13. **Estimate run times**: Use `REFERENCE.md` resource table
-14. **Recommend checkpoints**: Suggest inspecting outputs after each major step
-15. **Complete citations provided**: All references with DOIs included in methods paragraph
+10. **Provide all parallelization options**: For each parallelizable step, provide SLURM array, PBS array, and GNU parallel templates
+11. **Scheduler-specific configuration**: For SLURM/PBS, always ask about account, partition, email notifications, and log directories
+
+### Parallelization Strategy
+12. **Ask about parallelization preferences**: Let user choose between throughput optimization vs. simplicity
+13. **Compleasm optimization**: For ≥2 genomes and ≥16 cores, recommend the two-phase approach (Option A: first genome solo, then parallel) for better resource utilization
+14. **Threading guidelines**: Use the threading allocation table in STEP 2 to optimize concurrent jobs and threads per job based on available cores
+15. **Parallelizable steps**: Always provide parallel options for Steps 2 (compleasm), 5 (MAFFT), 6 (trimming), and 8C (gene trees)
+
+### Substitution Model Selection
+16. **Always recommend models**: Use the substitution model recommendation system (Question 9) - fetch IQ-TREE docs and analyze dataset characteristics
+17. **Model recommendation factors**: Consider taxonomic scope, number of taxa, evolutionary rates, and sequence type
+18. **Replace MODEL_SET placeholder**: In Step 8A scripts, replace with comma-separated model list (e.g., "LG,WAG,JTT,Q.pfam")
+19. **Taxonomically-targeted models**: Suggest Q.bird, Q.mammal, Q.insect, Q.plant, Q.yeast when applicable
+
+### Organization & Documentation
+20. **Provide clear directory structure**: Help users organize their workflow with numbered step directories
+21. **Methods paragraph customization**: Pre-fill known values and remove unused tool descriptions
+22. **Estimate run times**: Use `REFERENCE.md` resource table
+23. **Recommend checkpoints**: Suggest inspecting outputs after each major step
+24. **Complete citations provided**: All references with DOIs included in methods paragraph
 
 ---
 
