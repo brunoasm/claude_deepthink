@@ -1527,6 +1527,10 @@ conda activate phylo
 
 #### Part 8A: Partition Model Selection
 
+**Important**: Use the substitution models selected during initial setup (Question 9). The `-mset` parameter should contain the comma-separated list of base models without rate heterogeneity suffixes (e.g., "LG,WAG,JTT,Q.pfam").
+
+IQ-TREE will automatically test these models with different rate heterogeneity options (+G4, +R, etc.) and select the best-fitting model for each partition, then merge partitions with identical best models.
+
 **SLURM job for partition search:**
 ```bash
 #!/bin/bash
@@ -1534,9 +1538,13 @@ conda activate phylo
 #SBATCH --cpus-per-task=18
 #SBATCH --mem-per-cpu=4G
 #SBATCH --time=72:00:00
+#SBATCH --output=logs/partition_search.out
+#SBATCH --error=logs/partition_search.err
 
 source ~/.bashrc
 conda activate phylo
+
+cd 06_concatenation  # Use organized directory structure
 
 iqtree \
   -s FcC_supermatrix.fas \
@@ -1545,8 +1553,77 @@ iqtree \
   -safe \
   -pre partition_search \
   -m TESTMERGEONLY \
-  -mset LG+G
+  -mset MODEL_SET \
+  -msub nuclear \
+  -rcluster 10 \
+  -bb 1000 \
+  -alrt 1000
+
+# Output: partition_search.best_scheme.nex
 ```
+
+**PBS job for partition search:**
+```bash
+#!/bin/bash
+#PBS -N iqtree_partition
+#PBS -l nodes=1:ppn=18
+#PBS -l mem=72gb
+#PBS -l walltime=72:00:00
+
+cd $PBS_O_WORKDIR/06_concatenation
+source ~/.bashrc
+conda activate phylo
+
+iqtree \
+  -s FcC_supermatrix.fas \
+  -spp partition_def.txt \
+  -nt 18 \
+  -safe \
+  -pre partition_search \
+  -m TESTMERGEONLY \
+  -mset MODEL_SET \
+  -msub nuclear \
+  -rcluster 10 \
+  -bb 1000 \
+  -alrt 1000
+```
+
+**Local machine:**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd 06_concatenation
+
+iqtree \
+  -s FcC_supermatrix.fas \
+  -spp partition_def.txt \
+  -nt 18 \
+  -safe \
+  -pre partition_search \
+  -m TESTMERGEONLY \
+  -mset MODEL_SET \
+  -msub nuclear \
+  -rcluster 10 \
+  -bb 1000 \
+  -alrt 1000
+
+echo "Partition search complete! Best scheme: partition_search.best_scheme.nex"
+```
+
+**Replace `MODEL_SET` with your selected models**, for example:
+- Basic: `LG,WAG,JTT`
+- Recommended: `LG,WAG,JTT,Q.pfam`
+- With taxonomic models: `LG,WAG,Q.mammal,Q.pfam` (for mammals)
+
+**Parameters explained:**
+- `-m TESTMERGEONLY`: Test models and merge partitions with same best model
+- `-mset MODEL_SET`: Test only specified models (faster than MFP)
+- `-msub nuclear`: Rate heterogeneity appropriate for nuclear genes
+- `-rcluster 10`: Merge similar partitions (10% relaxed clustering)
+- `-bb 1000`: 1000 ultrafast bootstrap replicates
+- `-alrt 1000`: 1000 SH-aLRT replicates (additional branch support)
 
 #### Part 8B: Concatenated ML Tree
 
@@ -1593,6 +1670,8 @@ iqtree -s FcC_supermatrix.fas -spp partition_search.best_scheme.nex \
 #### Part 8C: Individual Gene Trees
 
 Estimate individual gene trees for coalescent-based species tree inference with ASTRAL.
+
+**Model Selection**: The `-m MFP` parameter (Model Finder Plus) will automatically test models from your selected model set and choose the best one for each gene. You can optionally specify `-mset MODEL_SET` to restrict the search to your chosen models, or use `-m MFP` to let IQ-TREE test a broader set.
 
 **SLURM array job:**
 ```bash
