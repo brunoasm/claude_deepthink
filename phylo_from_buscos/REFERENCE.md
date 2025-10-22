@@ -812,19 +812,19 @@ mkdir -p /tmp/phylo_downloads
 cd /tmp/phylo_downloads
 
 # Download FASconCAT-G
-wget https://github.com/PatrickKueck/FASconCAT-G/raw/master/FASconCAT-G_v1.05.pl
+wget https://raw.githubusercontent.com/PatrickKueck/FASconCAT-G/master/FASconCAT-G_v1.06.1.pl
 
 # Install into conda environment bin directory
 mkdir -p $CONDA_PREFIX/bin
-cp FASconCAT-G_v1.05.pl $CONDA_PREFIX/bin/
+cp FASconCAT-G_v1.06.1.pl $CONDA_PREFIX/bin/
 
 # Make executable
-chmod +x $CONDA_PREFIX/bin/FASconCAT-G_v1.05.pl
+chmod +x $CONDA_PREFIX/bin/FASconCAT-G_v1.06.1.pl
 
 # Create convenient wrapper script
 cat > $CONDA_PREFIX/bin/fasconcat <<'EOF'
 #!/bin/bash
-perl $(dirname $0)/FASconCAT-G_v1.05.pl "$@"
+perl $(dirname $0)/FASconCAT-G_v1.06.1.pl "$@"
 EOF
 
 chmod +x $CONDA_PREFIX/bin/fasconcat
@@ -842,7 +842,7 @@ fasconcat
 # Should display the interactive menu
 
 # Or call Perl script directly
-perl $CONDA_PREFIX/bin/FASconCAT-G_v1.05.pl
+perl $CONDA_PREFIX/bin/FASconCAT-G_v1.06.1.pl
 ```
 
 #### 3. IQ-TREE (Alternative: Direct Binary Download)
@@ -1041,9 +1041,9 @@ fi
 # Check FASconCAT-G
 if command -v fasconcat &> /dev/null; then
     echo "✓ FASconCAT-G is available (wrapper: fasconcat)"
-    check_file "$CONDA_PREFIX/bin/FASconCAT-G_v1.05.pl" "  FASconCAT-G_v1.05.pl"
-elif [ -f "$CONDA_PREFIX/bin/FASconCAT-G_v1.05.pl" ]; then
-    echo "✓ FASconCAT-G_v1.05.pl is installed (no wrapper)"
+    check_file "$CONDA_PREFIX/bin/FASconCAT-G_v1.06.1.pl" "  FASconCAT-G_v1.06.1.pl"
+elif [ -f "$CONDA_PREFIX/bin/FASconCAT-G_v1.06.1.pl" ]; then
+    echo "✓ FASconCAT-G_v1.06.1.pl is installed (no wrapper)"
 else
     echo "✗ FASconCAT-G is NOT installed"
 fi
