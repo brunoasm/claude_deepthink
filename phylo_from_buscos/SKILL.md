@@ -40,18 +40,48 @@ The complete phylogenomics pipeline:
 
 When a user requests phylogeny generation, **ALWAYS start by asking these questions**:
 
+### Step 1: Detect Computing Environment
+
+**Before asking questions**, attempt to detect the local computing environment to guide the user:
+
+```python
+# Check for job schedulers
+has_slurm = check_command("sbatch")
+has_pbs = check_command("qsub")
+has_parallel = check_command("parallel")
+
+# Report findings
+if has_slurm:
+    print("✓ SLURM detected on this system")
+elif has_pbs:
+    print("✓ PBS/Torque detected on this system")
+elif has_parallel:
+    print("✓ GNU parallel detected (suitable for local parallelization)")
+else:
+    print("ℹ No job scheduler detected (local machine)")
+```
+
+**Important**: The user may be generating scripts for a **different** system than the one they're currently on. Always ask for confirmation.
+
 ### Required Information
 
 1. **Computing Environment**
-   - SLURM cluster, PBS/Torque cluster, Cloud computing, or Local machine?
+   - Where will these scripts run?
+     - SLURM cluster
+     - PBS/Torque cluster
+     - Cloud computing (specify: AWS, GCP, Azure)
+     - Local machine
+   - [If detected environment differs] "I detected [X] on this machine. Will you be running the scripts here or on a different system?"
 
 2. **Input Data**
    - Local genome files, NCBI accessions, or both?
    - If NCBI: Assembly accessions (GCA_*/GCF_*) or BioProject accessions (PRJNA*/PRJEB*/PRJDA*)?
    - If local files: What are the file paths?
 
-3. **Taxonomic Scope**
+3. **Taxonomic Scope & Dataset Details**
    - What taxonomic group? (determines BUSCO lineage dataset)
+   - How many taxa/genomes will you analyze?
+   - What is the approximate phylogenetic breadth? (closely related species, genus-level, family-level, order-level, etc.)
    - See `REFERENCE.md` for complete lineage list
 
 4. **Environment Management**
@@ -60,13 +90,68 @@ When a user requests phylogeny generation, **ALWAYS start by asking these questi
    - If separate: individual conda environments per step (advanced users only)
 
 5. **Resource Constraints**
-   - How many CPU cores/threads would you like to use per job? (Ask user to specify, do not auto-detect)
-   - Available memory (RAM)?
-   - Maximum walltime?
+   - How many CPU cores/threads would you like to use **in total**? (Ask user to specify, do not auto-detect)
+   - Available memory (RAM) per node/machine?
+   - Maximum walltime for jobs?
    - See `REFERENCE.md` for resource recommendations
 
-6. **Alignment Trimming Preference**
-   - Aliscore/ALICUT (traditional), trimAl (fast), BMGE (entropy-based), or ClipKit (modern)?
+6. **Parallelization Strategy**
+
+   **IMPORTANT**: Multiple pipeline steps can benefit from parallelization. Ask the user how they want to handle parallel processing:
+
+   - **For job schedulers (SLURM/PBS)**:
+     - Use array jobs for parallel steps? (Recommended: Yes)
+     - Which steps to parallelize?
+       - ✓ Step 2: Ortholog identification (compleasm) - recommended
+       - ✓ Step 5: Alignment (MAFFT) - recommended
+       - ✓ Step 6: Alignment trimming - recommended
+       - ✓ Step 8C: Individual gene trees - recommended
+
+   - **For local machines**:
+     - Use GNU parallel for parallel steps? (requires `parallel` to be installed)
+     - How many concurrent jobs? (Consider: cores ÷ threads_per_job)
+
+   - **For all systems**:
+     - Should I optimize for maximum throughput or simplicity?
+       - Throughput: Use sophisticated parallel strategies (e.g., two-phase compleasm)
+       - Simplicity: Use serial processing (easier to debug, no coordination needed)
+
+7. **Scheduler-Specific Configuration** (if using SLURM or PBS)
+
+   Ask these additional questions for job scheduler systems:
+
+   - **Account/Username**: What account should be charged for compute time? (for `--account` or `-A`)
+   - **Partition/Queue**: Which partition/queue should jobs be submitted to? (e.g., "normal", "compute", "long")
+   - **Email Notifications**:
+     - Would you like email notifications for job status?
+     - If yes, what email address?
+     - When? (START, END, FAIL, ALL)
+   - **Job Dependencies**: Should jobs wait for previous steps to complete automatically? (Recommended: Yes for linear workflow)
+   - **Output Logs**: Where should log files be written? (Default: `logs/` directory)
+
+8. **Alignment Trimming Preference**
+   - Aliscore/ALICUT (traditional, thorough), trimAl (fast), BMGE (entropy-based), or ClipKit (modern)?
+
+9. **Substitution Model Selection** (for IQ-TREE phylogenetic inference)
+
+   **Context needed**:
+   - Taxonomic breadth: [from question 3]
+   - Number of taxa: [from question 3]
+   - Expected evolutionary rates: Fast-evolving, moderate, or slow-evolving group?
+
+   **Action**: Fetch IQ-TREE model documentation and suggest 3-5 appropriate amino acid substitution models based on:
+   - Dataset size (number of taxa and alignment length)
+   - Taxonomic scope (closely related vs. deep phylogeny)
+   - Evolutionary rates
+   - Common practice in the field
+
+   Present suggestions with justifications, then ask:
+   - Use recommended model set for automated selection? (Recommended)
+   - Or specify custom models? (Advanced users)
+
+   **Models will be used in**:
+   - Step 8A: Partition model search (`-mset` parameter)
+   - Step 8C: Individual gene tree inference (`-m MFP` with model set)
 
 ---
 
@@ -112,6 +197,130 @@ cd 05_trimmed
 perl ../scripts/FASconCAT-G.pl -s -i 2>&1 | tee ../logs/concatenation.log
 mv FcC_* ../06_concatenation/
 ```
+
+---
+
+## Substitution Model Recommendation
+
+**When asked question 9 (Substitution Model Selection)**, follow this process to recommend appropriate amino acid substitution models:
+
+### Step 1: Fetch IQ-TREE Model Documentation
+
+Use WebFetch to retrieve the latest model information:
+```
+WebFetch(url="https://iqtree.github.io/doc/Substitution-Models",
+         prompt="Extract all amino acid substitution models with descriptions and usage guidelines")
+```
+
+### Step 2: Analyze Dataset Characteristics
+
+Consider the following factors from user responses:
+
+1. **Taxonomic Scope** (from question 3):
+   - **Closely related (species/genus level)**: More parameter-rich models, less saturation
+   - **Moderate (family/order level)**: General-purpose models
+   - **Deep (class/phylum+ level)**: Robust models handling saturation
+
+2. **Number of Taxa** (from question 3):
+   - **< 20 taxa**: Avoid parameter-rich models (e.g., GTR20)
+   - **20-50 taxa**: Standard models work well
+   - **> 50 taxa**: Can use mixture models (e.g., C10-C60, LG4M)
+
+3. **Evolutionary Rates** (from question 9):
+   - **Fast-evolving**: Consider mixture models for rate heterogeneity
+   - **Moderate**: General-purpose models sufficient
+   - **Slow-evolving**: Simpler models may suffice
+
+4. **Sequence Type** (inferred from workflow):
+   - **Nuclear proteins**: LG, WAG, JTT, Q.pfam
+   - **Mitochondrial**: mtREV, mtZOA, mtMAM, mtART, mtVer, mtInv
+   - **Chloroplast**: cpREV
+
+### Step 3: Model Recommendation Matrix
+
+Based on the analysis, recommend 3-5 models using this decision tree:
+
+#### For Nuclear Proteins (most phylogenomics workflows):
+
+**Deep Phylogeny (class+ level), Many Taxa (>50)**:
+1. **LG+F+G4** or **LG+F+R** - Best general model, widely used
+2. **WAG+F+G4** - Alternative general model
+3. **LG4X** or **LG4M** - Mixture models for heterogeneity
+4. **Q.pfam+F+G4** - Database-derived, broad taxonomic sampling
+5. **JTT+F+G4** - Classical alternative
+
+**Moderate Phylogeny (family/order level), Moderate Taxa (20-50)**:
+1. **LG+F+G4** - Top choice for most analyses
+2. **WAG+F+G4** - Reliable alternative
+3. **JTT+F+G4** - Classical model
+4. **Q.pfam+F+G4** - Database-derived option
+
+**Shallow Phylogeny (species/genus level), Few Taxa (<20)**:
+1. **LG+F+G4** - Still recommended default
+2. **WAG+F+G4** - Good alternative
+3. **JTT+F+G4** - Classical option
+
+#### Taxonomically-Targeted Models (if applicable):
+
+- **Birds**: Q.bird+F+G4
+- **Mammals**: Q.mammal+F+G4, mtMAM (if mtDNA)
+- **Insects**: Q.insect+F+G4, mtART (if mtDNA)
+- **Plants**: Q.plant+F+G4, cpREV (if chloroplast)
+- **Yeasts/Fungi**: Q.yeast+F+G4
+
+#### Model Notation Explained:
+- **LG, WAG, JTT**: Empirical exchange rate matrix name
+- **+F**: Use empirical amino acid frequencies from data (recommended)
+- **+G4**: Gamma model with 4 rate categories for among-site rate variation
+- **+R**: FreeRate model (alternative to Gamma, often better but slower)
+
+### Step 4: Present Recommendations with Justifications
+
+Format your recommendation like this:
+
+```markdown
+### Recommended Substitution Models for Your Dataset
+
+Based on your dataset ([NUMBER] taxa, [TAXONOMIC_SCOPE] phylogenetic breadth, [SEQUENCE_TYPE]):
+
+**Primary Recommendations** (use all in model testing):
+
+1. **LG+F+G4**
+   - **Why**: Most widely used modern AA model, performs well across diverse datasets
+   - **Citations**: Proven effective in [relevant papers for user's taxonomic group]
+
+2. **WAG+F+G4**
+   - **Why**: Excellent general-purpose alternative, often comparable to LG
+   - **Use case**: Good backup if LG shows poor fit
+
+3. **JTT+F+G4**
+   - **Why**: Classical model still widely used, allows comparison with older studies
+   - **Use case**: Historical comparisons
+
+[Add 2-3 more specific to their data...]
+
+**For IQ-TREE Step 8A**, we'll use these models in the partition search:
+```bash
+-mset LG,WAG,JTT,Q.pfam  # Model set for testing
+-m TESTMERGEONLY          # Test models and merge partitions
+```
+
+**For Step 8C (gene trees)**, we'll use:
+```bash
+-m MFP  # Model Finder Plus (tests models from our set)
+```
+
+Would you like to:
+1. ✓ Use these recommended models (recommended)
+2. Specify a custom model set
+3. Let me fetch more information about your specific taxonomic group
+```
+
+### Step 5: Handle User Response
+
+- **If user accepts**: Store model string (e.g., "LG,WAG,JTT,Q.pfam") for use in Step 8 scripts
+- **If user requests custom**: Ask for comma-separated list, validate against IQ-TREE docs
+- **If user needs more info**: Fetch additional resources specific to their taxonomic group
 
 ---
 
@@ -878,15 +1087,15 @@ Based on user's preference, provide appropriate method:
 
 #### Option A: trimAl (Fast, recommended for large datasets)
 
+**SLURM array job:**
 ```bash
-conda activate phylo  # Already contains trimAl
-
-# Array job for SLURM
 #!/bin/bash
 #SBATCH --job-name=trimal_array
 #SBATCH --array=1-NUM_LOCI
+#SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=2G
 #SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.trimal.out
 
 source ~/.bashrc
 conda activate phylo
@@ -900,21 +1109,162 @@ output=$(basename ${locus} _aligned.fas)_trimmed.fas
 trimal -in ${locus} -out ../trimmed_aa/${output} -automated1
 ```
 
+**PBS array job:**
+```bash
+#!/bin/bash
+#PBS -N trimal_array
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=2gb
+#PBS -l walltime=2:00:00
+
+cd $PBS_O_WORKDIR/aligned_aa
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${PBS_ARRAYID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+trimal -in ${locus} -out ../trimmed_aa/${output} -automated1
+```
+
+**Local with GNU parallel:**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+# Process alignments in parallel (adjust -j for number of concurrent jobs)
+cat aligned_loci.txt | parallel -j 4 '
+  output=$(basename {} _aligned.fas)_trimmed.fas
+  trimal -in {} -out ../trimmed_aa/${output} -automated1
+  echo "Trimmed: ${output}"
+'
+```
+
 #### Option B: ClipKit (Modern, fast)
 
+**SLURM array job:**
 ```bash
-conda activate phylo  # Already contains ClipKit
+#!/bin/bash
+#SBATCH --job-name=clipkit_array
+#SBATCH --array=1-NUM_LOCI
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=2G
+#SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.clipkit.out
 
-# Similar array structure
-clipkit ${locus} -o ../trimmed_aa/$(basename ${locus} _aligned.fas)_trimmed.fas
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+clipkit ${locus} -o ../trimmed_aa/${output}
+```
+
+**PBS array job:**
+```bash
+#!/bin/bash
+#PBS -N clipkit_array
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=2gb
+#PBS -l walltime=2:00:00
+
+cd $PBS_O_WORKDIR/aligned_aa
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${PBS_ARRAYID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+clipkit ${locus} -o ../trimmed_aa/${output}
+```
+
+**Local with GNU parallel:**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+cat aligned_loci.txt | parallel -j 4 '
+  output=$(basename {} _aligned.fas)_trimmed.fas
+  clipkit {} -o ../trimmed_aa/${output}
+'
 ```
 
 #### Option C: BMGE (Entropy-based)
 
+**SLURM array job:**
 ```bash
-conda activate phylo  # Already contains BMGE
+#!/bin/bash
+#SBATCH --job-name=bmge_array
+#SBATCH --array=1-NUM_LOCI
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=2G
+#SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.bmge.out
 
-bmge -i ${locus} -t AA -o ../trimmed_aa/$(basename ${locus} _aligned.fas)_trimmed.fas
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+bmge -i ${locus} -t AA -o ../trimmed_aa/${output}
+```
+
+**PBS array job:**
+```bash
+#!/bin/bash
+#PBS -N bmge_array
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=2gb
+#PBS -l walltime=2:00:00
+
+cd $PBS_O_WORKDIR/aligned_aa
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${PBS_ARRAYID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+bmge -i ${locus} -t AA -o ../trimmed_aa/${output}
+```
+
+**Local with GNU parallel:**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+cat aligned_loci.txt | parallel -j 4 '
+  output=$(basename {} _aligned.fas)_trimmed.fas
+  bmge -i {} -t AA -o ../trimmed_aa/${output}
+'
 ```
 
 #### Option D: Aliscore/ALICUT (Traditional, recommended for phylogenomics)
@@ -944,7 +1294,7 @@ This will:
 3. Generate `trimmed_aa/` with all trimmed alignments
 4. Create `trimming_summary.txt` with statistics
 
-**Method 2: Array Jobs (For HPC clusters)**
+**Method 2: SLURM Array Jobs**
 
 For SLURM clusters, use the individual wrapper scripts **`scripts/run_aliscore.sh`** and **`scripts/run_alicut.sh`**:
 
@@ -963,6 +1313,7 @@ num_loci=$(wc -l < locus_list.txt)
 #SBATCH --output=logs/%A_%a.aliscore.out
 
 source ~/.bashrc
+conda activate phylo
 
 # Run Aliscore using wrapper
 bash ../scripts/run_aliscore.sh -N
@@ -973,7 +1324,7 @@ bash ../scripts/run_aliscore.sh -N
 After all Aliscore jobs complete:
 
 ```bash
-# Step 2: ALICUT array job or batch processing
+# Step 2: ALICUT batch processing (collect trimmed alignments)
 for dir in aliscore_output/aliscore_*/; do
     bash ../scripts/run_alicut.sh "${dir}" -s
 done
@@ -988,6 +1339,107 @@ for dir in aliscore_output/aliscore_*/; do
     fi
 done
 ```
+
+**Method 3: PBS Array Jobs**
+
+For PBS/Torque clusters:
+
+```bash
+cd aligned_aa
+ls *.fas > locus_list.txt
+num_loci=$(wc -l < locus_list.txt)
+
+# Step 1: Aliscore array job (save as 01_aliscore_array.pbs)
+#!/bin/bash
+#PBS -N aliscore_array
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=2gb
+#PBS -l walltime=4:00:00
+
+cd $PBS_O_WORKDIR/aligned_aa
+source ~/.bashrc
+conda activate phylo
+
+# Run Aliscore using wrapper
+bash ../scripts/run_aliscore.sh -N
+```
+
+Submit with: `qsub 01_aliscore_array.pbs`
+
+After all Aliscore jobs complete:
+
+```bash
+# Step 2: ALICUT batch processing (save as 02_alicut_batch.sh)
+#!/bin/bash
+
+cd aligned_aa
+source ~/.bashrc
+conda activate phylo
+
+for dir in aliscore_output/aliscore_*/; do
+    bash ../scripts/run_alicut.sh "${dir}" -s
+done
+
+# Collect trimmed alignments
+mkdir -p ../trimmed_aa
+for dir in aliscore_output/aliscore_*/; do
+    trimmed=$(find "${dir}" -name "ALICUT_*.fas")
+    if [ -n "${trimmed}" ]; then
+        locus=$(basename "${dir}" | sed 's/aliscore_//')
+        cp "${trimmed}" ../trimmed_aa/${locus}_trimmed.fas
+    fi
+done
+```
+
+Run with: `bash 02_alicut_batch.sh`
+
+**Method 4: Local with GNU Parallel**
+
+For local machines with GNU parallel:
+
+```bash
+#!/bin/bash
+# run_aliscore_alicut_parallel.sh
+
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+ls *.fas > locus_list.txt
+mkdir -p aliscore_output
+mkdir -p ../trimmed_aa
+
+# Step 1: Run Aliscore in parallel (adjust -j for concurrent jobs)
+cat locus_list.txt | parallel -j 4 '
+  locus_name=$(basename {} .fas)
+  mkdir -p aliscore_output/aliscore_${locus_name}
+  cd aliscore_output/aliscore_${locus_name}
+  perl ../../scripts/Aliscore.02.2.pl -N -i ../../{}
+  cd ../..
+  echo "Aliscore complete: ${locus_name}"
+'
+
+echo "All Aliscore jobs complete. Running ALICUT..."
+
+# Step 2: Run ALICUT in parallel
+find aliscore_output -name "aliscore_*" -type d | parallel -j 4 '
+  bash ../scripts/run_alicut.sh {} -s
+'
+
+# Step 3: Collect trimmed alignments
+for dir in aliscore_output/aliscore_*/; do
+    trimmed=$(find "${dir}" -name "ALICUT_*.fas")
+    if [ -n "${trimmed}" ]; then
+        locus=$(basename "${dir}" | sed 's/aliscore_//')
+        cp "${trimmed}" ../trimmed_aa/${locus}_trimmed.fas
+    fi
+done
+
+echo "Trimming complete! Trimmed alignments in ../trimmed_aa/"
+```
+
+Run with: `bash run_aliscore_alicut_parallel.sh`
 
 **Key Parameters:**
 
@@ -1075,6 +1527,10 @@ conda activate phylo
 
 #### Part 8A: Partition Model Selection
 
+**Important**: Use the substitution models selected during initial setup (Question 9). The `-mset` parameter should contain the comma-separated list of base models without rate heterogeneity suffixes (e.g., "LG,WAG,JTT,Q.pfam").
+
+IQ-TREE will automatically test these models with different rate heterogeneity options (+G4, +R, etc.) and select the best-fitting model for each partition, then merge partitions with identical best models.
+
 **SLURM job for partition search:**
 ```bash
 #!/bin/bash
@@ -1082,9 +1538,13 @@ conda activate phylo
 #SBATCH --cpus-per-task=18
 #SBATCH --mem-per-cpu=4G
 #SBATCH --time=72:00:00
+#SBATCH --output=logs/partition_search.out
+#SBATCH --error=logs/partition_search.err
 
 source ~/.bashrc
 conda activate phylo
+
+cd 06_concatenation  # Use organized directory structure
 
 iqtree \
   -s FcC_supermatrix.fas \
@@ -1093,8 +1553,77 @@ iqtree \
   -safe \
   -pre partition_search \
   -m TESTMERGEONLY \
-  -mset LG+G
+  -mset MODEL_SET \
+  -msub nuclear \
+  -rcluster 10 \
+  -bb 1000 \
+  -alrt 1000
+
+# Output: partition_search.best_scheme.nex
 ```
+
+**PBS job for partition search:**
+```bash
+#!/bin/bash
+#PBS -N iqtree_partition
+#PBS -l nodes=1:ppn=18
+#PBS -l mem=72gb
+#PBS -l walltime=72:00:00
+
+cd $PBS_O_WORKDIR/06_concatenation
+source ~/.bashrc
+conda activate phylo
+
+iqtree \
+  -s FcC_supermatrix.fas \
+  -spp partition_def.txt \
+  -nt 18 \
+  -safe \
+  -pre partition_search \
+  -m TESTMERGEONLY \
+  -mset MODEL_SET \
+  -msub nuclear \
+  -rcluster 10 \
+  -bb 1000 \
+  -alrt 1000
+```
+
+**Local machine:**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd 06_concatenation
+
+iqtree \
+  -s FcC_supermatrix.fas \
+  -spp partition_def.txt \
+  -nt 18 \
+  -safe \
+  -pre partition_search \
+  -m TESTMERGEONLY \
+  -mset MODEL_SET \
+  -msub nuclear \
+  -rcluster 10 \
+  -bb 1000 \
+  -alrt 1000
+
+echo "Partition search complete! Best scheme: partition_search.best_scheme.nex"
+```
+
+**Replace `MODEL_SET` with your selected models**, for example:
+- Basic: `LG,WAG,JTT`
+- Recommended: `LG,WAG,JTT,Q.pfam`
+- With taxonomic models: `LG,WAG,Q.mammal,Q.pfam` (for mammals)
+
+**Parameters explained:**
+- `-m TESTMERGEONLY`: Test models and merge partitions with same best model
+- `-mset MODEL_SET`: Test only specified models (faster than MFP)
+- `-msub nuclear`: Rate heterogeneity appropriate for nuclear genes
+- `-rcluster 10`: Merge similar partitions (10% relaxed clustering)
+- `-bb 1000`: 1000 ultrafast bootstrap replicates
+- `-alrt 1000`: 1000 SH-aLRT replicates (additional branch support)
 
 #### Part 8B: Concatenated ML Tree
 
@@ -1140,6 +1669,10 @@ iqtree -s FcC_supermatrix.fas -spp partition_search.best_scheme.nex \
 
 #### Part 8C: Individual Gene Trees
 
+Estimate individual gene trees for coalescent-based species tree inference with ASTRAL.
+
+**Model Selection**: The `-m MFP` parameter (Model Finder Plus) will automatically test models from your selected model set and choose the best one for each gene. You can optionally specify `-mset MODEL_SET` to restrict the search to your chosen models, or use `-m MFP` to let IQ-TREE test a broader set.
+
 **SLURM array job:**
 ```bash
 #!/bin/bash
@@ -1148,11 +1681,18 @@ iqtree -s FcC_supermatrix.fas -spp partition_search.best_scheme.nex \
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=4G
 #SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.genetree.out
 
 source ~/.bashrc
 conda activate phylo
 
 cd trimmed_aa
+
+# Create list of alignments if not present
+if [ ! -f locus_alignments.txt ]; then
+    ls *_trimmed.fas > locus_alignments.txt
+fi
+
 locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" locus_alignments.txt)
 
 iqtree \
@@ -1161,6 +1701,72 @@ iqtree \
   -bb 1000 \
   -pre $(basename ${locus} _trimmed.fas) \
   -nt 1
+```
+
+**PBS array job:**
+```bash
+#!/bin/bash
+#PBS -N iqtree_genes
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=4gb
+#PBS -l walltime=2:00:00
+
+cd $PBS_O_WORKDIR/trimmed_aa
+source ~/.bashrc
+conda activate phylo
+
+# Create list of alignments if not present
+if [ ! -f locus_alignments.txt ]; then
+    ls *_trimmed.fas > locus_alignments.txt
+fi
+
+locus=$(sed -n "${PBS_ARRAYID}p" locus_alignments.txt)
+
+iqtree \
+  -s ${locus} \
+  -m MFP \
+  -bb 1000 \
+  -pre $(basename ${locus} _trimmed.fas) \
+  -nt 1
+```
+
+**Local with GNU parallel:**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd trimmed_aa
+
+# Create list of alignments
+ls *_trimmed.fas > locus_alignments.txt
+
+# Run IQ-TREE in parallel (adjust -j for number of concurrent jobs)
+cat locus_alignments.txt | parallel -j 4 '
+  prefix=$(basename {} _trimmed.fas)
+  iqtree -s {} -m MFP -bb 1000 -pre ${prefix} -nt 1
+  echo "Tree complete: ${prefix}"
+'
+
+echo "All gene trees complete!"
+```
+
+**Local serial (for debugging or limited resources):**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd trimmed_aa
+
+for locus in *_trimmed.fas; do
+    prefix=$(basename ${locus} _trimmed.fas)
+    echo "Processing ${prefix}..."
+    iqtree -s ${locus} -m MFP -bb 1000 -pre ${prefix} -nt 1
+done
+
+echo "All gene trees complete!"
 ```
 
 #### Part 8D: ASTRAL Species Tree
@@ -1352,21 +1958,41 @@ Provide users with summary of outputs:
 
 ## Important Notes
 
+### Mandatory Steps
 1. **STEP 0 is mandatory**: Always generate the environment setup script first
 2. **STEP 9 is mandatory**: Always generate the methods paragraph file at the end
+
+### Environment & Setup
 3. **Unified environment simplifies workflow**: One environment for all tools (compleasm, MAFFT, trimAl, ClipKit, BMGE, IQ-TREE, Perl, GNU parallel)
 4. **Aliscore/ALICUT scripts included**: Predownloaded versions available in `scripts/predownloaded_aliscore_alicut/`
 5. **No manual downloads required**: Setup script handles all Perl scripts and conda packages
-6. **Methods paragraph customization**: Pre-fill known values and remove unused tool descriptions
+6. **Detect computing environment**: Use bash commands to check for `sbatch`, `qsub`, `parallel` before asking questions
+
+### Script Generation
 7. **Always adapt scripts** to user's specific scheduler (SLURM/PBS/local/cloud)
-8. **Replace placeholders**: N (array size), LINEAGE, NUM_LOCI, THREADS, paths
+8. **Replace placeholders**: N (array size), LINEAGE, NUM_LOCI, THREADS, MODEL_SET, paths
 9. **Never auto-detect CPU cores**: Always ask user how many cores to use, never use `nproc` or similar auto-detection
-10. **Compleasm optimization**: For ≥2 genomes and ≥16 cores, recommend the two-phase approach (Option A: first genome solo, then parallel) for better resource utilization
-11. **Threading guidelines**: Use the threading allocation table in STEP 2 to optimize concurrent jobs and threads per job based on available cores
-12. **Provide clear directory structure**: Help users organize their workflow
-13. **Estimate run times**: Use `REFERENCE.md` resource table
-14. **Recommend checkpoints**: Suggest inspecting outputs after each major step
-15. **Complete citations provided**: All references with DOIs included in methods paragraph
+10. **Provide all parallelization options**: For each parallelizable step, provide SLURM array, PBS array, and GNU parallel templates
+11. **Scheduler-specific configuration**: For SLURM/PBS, always ask about account, partition, email notifications, and log directories
+
+### Parallelization Strategy
+12. **Ask about parallelization preferences**: Let user choose between throughput optimization vs. simplicity
+13. **Compleasm optimization**: For ≥2 genomes and ≥16 cores, recommend the two-phase approach (Option A: first genome solo, then parallel) for better resource utilization
+14. **Threading guidelines**: Use the threading allocation table in STEP 2 to optimize concurrent jobs and threads per job based on available cores
+15. **Parallelizable steps**: Always provide parallel options for Steps 2 (compleasm), 5 (MAFFT), 6 (trimming), and 8C (gene trees)
+
+### Substitution Model Selection
+16. **Always recommend models**: Use the substitution model recommendation system (Question 9) - fetch IQ-TREE docs and analyze dataset characteristics
+17. **Model recommendation factors**: Consider taxonomic scope, number of taxa, evolutionary rates, and sequence type
+18. **Replace MODEL_SET placeholder**: In Step 8A scripts, replace with comma-separated model list (e.g., "LG,WAG,JTT,Q.pfam")
+19. **Taxonomically-targeted models**: Suggest Q.bird, Q.mammal, Q.insect, Q.plant, Q.yeast when applicable
+
+### Organization & Documentation
+20. **Provide clear directory structure**: Help users organize their workflow with numbered step directories
+21. **Methods paragraph customization**: Pre-fill known values and remove unused tool descriptions
+22. **Estimate run times**: Use `REFERENCE.md` resource table
+23. **Recommend checkpoints**: Suggest inspecting outputs after each major step
+24. **Complete citations provided**: All references with DOIs included in methods paragraph
 
 ---
 
