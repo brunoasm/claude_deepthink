@@ -200,6 +200,56 @@ mv FcC_* ../06_concatenation/
 
 ---
 
+## Template System
+
+**This skill uses a template-based system** to reduce token usage and improve maintainability. Script templates are stored in the `templates/` directory and organized by computing environment.
+
+### Template Directory Structure
+
+```
+templates/
+├── slurm/      # SLURM job scheduler templates
+├── pbs/        # PBS/Torque job scheduler templates
+├── local/      # Local machine templates (with GNU parallel)
+└── README.md   # Complete template documentation
+```
+
+### How to Use Templates
+
+When generating scripts for users:
+
+1. **Read the appropriate template** for their computing environment:
+   ```
+   Read("templates/slurm/02_compleasm_first.job")
+   ```
+
+2. **Replace placeholders** with user-specific values:
+   - `TOTAL_THREADS` → e.g., `64`
+   - `THREADS_PER_JOB` → e.g., `16`
+   - `NUM_GENOMES` → e.g., `20`
+   - `NUM_LOCI` → e.g., `2795`
+   - `LINEAGE` → e.g., `insecta_odb10`
+   - `MODEL_SET` → e.g., `LG,WAG,JTT,Q.pfam`
+
+3. **Present the customized script** to the user with setup instructions
+
+### Available Templates
+
+See `templates/README.md` for complete list. Key templates:
+
+- **Step 2 (compleasm)**: `02_compleasm_first`, `02_compleasm_parallel`
+- **Step 8A (partition search)**: `08a_partition_search`
+- **Step 8C (gene trees)**: `08c_gene_trees_array`, `08c_gene_trees_parallel`, `08c_gene_trees_serial`
+
+### Benefits
+
+- **Reduced token usage**: Only load templates when needed
+- **Easier maintenance**: Update one template file vs. multiple locations
+- **Consistency**: All users get same base structure
+- **Clarity**: Separate files easier to review than inline code
+
+---
+
 ## Substitution Model Recommendation
 
 **When asked question 9 (Substitution Model Selection)**, follow this process to recommend appropriate amino acid substitution models:
@@ -644,69 +694,31 @@ Then provide the appropriate script based on user's computing environment:
 
 **Option A: Optimized Parallel Workflow (Recommended)**
 
-This workflow runs the first genome alone to download the lineage database, then processes remaining genomes in parallel:
+This workflow runs the first genome alone to download the lineage database, then processes remaining genomes in parallel.
 
-```bash
-#!/bin/bash
-#SBATCH --job-name=compleasm_first
-#SBATCH --cpus-per-task=TOTAL_THREADS  # Replace with total available CPUs (e.g., 64)
-#SBATCH --mem-per-cpu=6G
-#SBATCH --time=24:00:00
-#SBATCH --output=logs/compleasm_first.%j.out
-#SBATCH --error=logs/compleasm_first.%j.err
+**Using templates** (recommended approach):
 
-source ~/.bashrc
-conda activate phylo
+```python
+# Read the templates
+first_template = Read("templates/slurm/02_compleasm_first.job")
+parallel_template = Read("templates/slurm/02_compleasm_parallel.job")
 
-mkdir -p logs
+# Replace placeholders with user values
+first_script = first_template.replace("TOTAL_THREADS", user_total_threads)
+first_script = first_script.replace("LINEAGE", user_lineage)
 
-# Process FIRST genome only (downloads lineage database)
-first_genome=$(head -n 1 genome_list.txt)
-genome_name=$(basename ${first_genome} .fasta)
-echo "Processing first genome: ${genome_name} with ${SLURM_CPUS_PER_TASK} threads..."
-echo "This will download the BUSCO lineage database for subsequent runs."
+parallel_script = parallel_template.replace("NUM_GENOMES", str(num_genomes))
+parallel_script = parallel_script.replace("THREADS_PER_JOB", threads_per_job)
+parallel_script = parallel_script.replace("LINEAGE", user_lineage)
 
-compleasm run \
-  -a ${first_genome} \
-  -o ${genome_name}_compleasm \
-  -l LINEAGE \
-  -t ${SLURM_CPUS_PER_TASK}
-
-echo "First genome complete! Lineage database is now cached."
-echo "Submit the parallel job for remaining genomes: sbatch run_compleasm_parallel.job"
+# Present customized scripts to user
+print("Save the following as run_compleasm_first.job:\n")
+print(first_script)
+print("\nSave the following as run_compleasm_parallel.job:\n")
+print(parallel_script)
 ```
 
-Save as `run_compleasm_first.job` and submit: `sbatch run_compleasm_first.job`
-
-After the first job completes, submit the parallel job:
-
-```bash
-#!/bin/bash
-#SBATCH --job-name=compleasm_parallel
-#SBATCH --array=2-NUM_GENOMES  # Start from genome 2 (first genome already processed)
-#SBATCH --cpus-per-task=THREADS_PER_JOB  # e.g., 16 for 64-core system with 4 concurrent jobs
-#SBATCH --mem-per-cpu=6G
-#SBATCH --time=48:00:00
-#SBATCH --output=logs/compleasm.%A_%a.out
-#SBATCH --error=logs/compleasm.%A_%a.err
-
-source ~/.bashrc
-conda activate phylo
-
-# Get genome for this array task (skipping the first one)
-genome=$(sed -n "${SLURM_ARRAY_TASK_ID}p" genome_list.txt)
-genome_name=$(basename ${genome} .fasta)
-
-echo "Processing ${genome_name} with ${SLURM_CPUS_PER_TASK} threads..."
-
-compleasm run \
-  -a ${genome} \
-  -o ${genome_name}_compleasm \
-  -l LINEAGE \
-  -t ${SLURM_CPUS_PER_TASK}
-```
-
-Save as `run_compleasm_parallel.job` and submit after first job completes: `sbatch run_compleasm_parallel.job`
+Submit with: `sbatch run_compleasm_first.job` followed by `sbatch run_compleasm_parallel.job` after first job completes.
 
 **Setup instructions:**
 1. Count your genomes: `num_genomes=$(wc -l < genome_list.txt); echo $num_genomes`
@@ -759,67 +771,29 @@ Note: This runs genomes sequentially (one at a time), using all CPUs for each ge
 
 **Option A: Optimized Parallel Workflow (Recommended)**
 
-First, process the first genome alone:
+**Using templates** (recommended approach):
 
-```bash
-#!/bin/bash
-#PBS -N compleasm_first
-#PBS -l nodes=1:ppn=TOTAL_THREADS  # Replace with total available CPUs (e.g., 64)
-#PBS -l mem=384gb  # Adjust based on ppn × 6GB
-#PBS -l walltime=24:00:00
+```python
+# Read the templates
+first_template = Read("templates/pbs/02_compleasm_first.job")
+parallel_template = Read("templates/pbs/02_compleasm_parallel.job")
 
-cd $PBS_O_WORKDIR
-source ~/.bashrc
-conda activate phylo
+# Replace placeholders with user values
+first_script = first_template.replace("TOTAL_THREADS", user_total_threads)
+first_script = first_script.replace("LINEAGE", user_lineage)
 
-mkdir -p logs
+parallel_script = parallel_template.replace("NUM_GENOMES", str(num_genomes))
+parallel_script = parallel_script.replace("THREADS_PER_JOB", threads_per_job)
+parallel_script = parallel_script.replace("LINEAGE", user_lineage)
 
-# Process FIRST genome only (downloads lineage database)
-first_genome=$(head -n 1 genome_list.txt)
-genome_name=$(basename ${first_genome} .fasta)
-echo "Processing first genome: ${genome_name} with $PBS_NUM_PPN threads..."
-echo "This will download the BUSCO lineage database for subsequent runs."
-
-compleasm run \
-  -a ${first_genome} \
-  -o ${genome_name}_compleasm \
-  -l LINEAGE \
-  -t $PBS_NUM_PPN
-
-echo "First genome complete! Lineage database is now cached."
-echo "Submit the parallel job for remaining genomes: qsub run_compleasm_parallel.job"
+# Present customized scripts to user
+print("Save the following as run_compleasm_first.job:\n")
+print(first_script)
+print("\nSave the following as run_compleasm_parallel.job:\n")
+print(parallel_script)
 ```
 
-Save as `run_compleasm_first.job` and submit: `qsub run_compleasm_first.job`
-
-After the first job completes, submit the parallel array job:
-
-```bash
-#!/bin/bash
-#PBS -N compleasm_parallel
-#PBS -t 2-NUM_GENOMES  # Start from genome 2 (first genome already processed)
-#PBS -l nodes=1:ppn=THREADS_PER_JOB  # e.g., 16 for 64-core system
-#PBS -l mem=96gb  # Adjust based on ppn × 6GB
-#PBS -l walltime=48:00:00
-
-cd $PBS_O_WORKDIR
-source ~/.bashrc
-conda activate phylo
-
-# Get genome for this array task
-genome=$(sed -n "${PBS_ARRAYID}p" genome_list.txt)
-genome_name=$(basename ${genome} .fasta)
-
-echo "Processing ${genome_name} with $PBS_NUM_PPN threads..."
-
-compleasm run \
-  -a ${genome} \
-  -o ${genome_name}_compleasm \
-  -l LINEAGE \
-  -t $PBS_NUM_PPN
-```
-
-Save as `run_compleasm_parallel.job` and submit: `qsub run_compleasm_parallel.job`
+Submit with: `qsub run_compleasm_first.job` followed by `qsub run_compleasm_parallel.job` after first job completes.
 
 **Setup instructions:**
 1. Count your genomes: `num_genomes=$(wc -l < genome_list.txt); echo $num_genomes`
@@ -862,72 +836,29 @@ Submit with: `qsub run_compleasm_serial.job`
 
 **Option A: Optimized Parallel Workflow (Recommended for multi-core systems)**
 
-First, run the first genome alone to download the lineage database:
+**Using templates** (recommended approach):
 
-```bash
-#!/bin/bash
-# run_compleasm_first.sh
-source ~/.bashrc
-conda activate phylo
+```python
+# Read the templates
+first_template = Read("templates/local/02_compleasm_first.sh")
+parallel_template = Read("templates/local/02_compleasm_parallel.sh")
 
-# User-specified total CPU threads
-TOTAL_THREADS=TOTAL_THREADS  # Replace with total cores you want to use (e.g., 16, 32, 64)
-echo "Processing first genome with ${TOTAL_THREADS} CPU threads to download lineage database..."
+# Replace placeholders with user values
+first_script = first_template.replace("TOTAL_THREADS", user_total_threads)
+first_script = first_script.replace("LINEAGE", user_lineage)
 
-# Process FIRST genome only
-first_genome=$(head -n 1 genome_list.txt)
-genome_name=$(basename ${first_genome} .fasta)
-echo "Processing: ${genome_name}"
+parallel_script = parallel_template.replace("TOTAL_THREADS", user_total_threads)
+parallel_script = parallel_script.replace("THREADS_PER_JOB", threads_per_job)
+parallel_script = parallel_script.replace("LINEAGE", user_lineage)
 
-compleasm run \
-  -a ${first_genome} \
-  -o ${genome_name}_compleasm \
-  -l LINEAGE \
-  -t ${TOTAL_THREADS}
-
-echo ""
-echo "First genome complete! Lineage database is now cached."
-echo "Now run the parallel script for remaining genomes: bash run_compleasm_parallel.sh"
+# Present customized scripts to user
+print("Save the following as run_compleasm_first.sh:\n")
+print(first_script)
+print("\nSave the following as run_compleasm_parallel.sh:\n")
+print(parallel_script)
 ```
 
-Run with: `bash run_compleasm_first.sh`
-
-After the first genome completes, process remaining genomes in parallel using GNU parallel:
-
-```bash
-#!/bin/bash
-# run_compleasm_parallel.sh
-source ~/.bashrc
-conda activate phylo
-
-# Threading configuration (adjust based on your system)
-TOTAL_THREADS=TOTAL_THREADS      # Total cores to use (e.g., 64)
-THREADS_PER_JOB=THREADS_PER_JOB  # Threads per genome (e.g., 16)
-CONCURRENT_JOBS=$((TOTAL_THREADS / THREADS_PER_JOB))  # Calculated automatically
-
-echo "Configuration:"
-echo "  Total threads:      ${TOTAL_THREADS}"
-echo "  Threads per genome: ${THREADS_PER_JOB}"
-echo "  Concurrent genomes: ${CONCURRENT_JOBS}"
-echo ""
-
-# Process remaining genomes (skip first one) in parallel
-tail -n +2 genome_list.txt | parallel -j ${CONCURRENT_JOBS} '
-  genome_name=$(basename {} .fasta)
-  echo "Processing ${genome_name} with THREADS_PER_JOB threads..."
-
-  compleasm run \
-    -a {} \
-    -o ${genome_name}_compleasm \
-    -l LINEAGE \
-    -t THREADS_PER_JOB
-'
-
-echo ""
-echo "All genomes processed!"
-```
-
-Run with: `bash run_compleasm_parallel.sh`
+Run with: `bash run_compleasm_first.sh` followed by `bash run_compleasm_parallel.sh` after first completes.
 
 **Setup instructions:**
 1. Edit `run_compleasm_first.sh`: Replace `TOTAL_THREADS` with all cores you want to use
@@ -1531,85 +1462,30 @@ conda activate phylo
 
 IQ-TREE will automatically test these models with different rate heterogeneity options (+G4, +R, etc.) and select the best-fitting model for each partition, then merge partitions with identical best models.
 
-**SLURM job for partition search:**
-```bash
-#!/bin/bash
-#SBATCH --job-name=iqtree_partition
-#SBATCH --cpus-per-task=18
-#SBATCH --mem-per-cpu=4G
-#SBATCH --time=72:00:00
-#SBATCH --output=logs/partition_search.out
-#SBATCH --error=logs/partition_search.err
+**Using templates** (recommended approach):
 
-source ~/.bashrc
-conda activate phylo
+```python
+# Read the appropriate template based on user's computing environment
+if scheduler == "slurm":
+    template = Read("templates/slurm/08a_partition_search.job")
+    script_name = "run_partition_search.job"
+    submit_cmd = "sbatch"
+elif scheduler == "pbs":
+    template = Read("templates/pbs/08a_partition_search.job")
+    script_name = "run_partition_search.job"
+    submit_cmd = "qsub"
+else:  # local
+    template = Read("templates/local/08a_partition_search.sh")
+    script_name = "run_partition_search.sh"
+    submit_cmd = "bash"
 
-cd 06_concatenation  # Use organized directory structure
+# Replace MODEL_SET placeholder with user's selected models
+script = template.replace("MODEL_SET", user_model_set)
 
-iqtree \
-  -s FcC_supermatrix.fas \
-  -spp partition_def.txt \
-  -nt ${SLURM_CPUS_PER_TASK} \
-  -safe \
-  -pre partition_search \
-  -m TESTMERGEONLY \
-  -mset MODEL_SET \
-  -msub nuclear \
-  -rcluster 10 \
-  -bb 1000 \
-  -alrt 1000
-
-# Output: partition_search.best_scheme.nex
-```
-
-**PBS job for partition search:**
-```bash
-#!/bin/bash
-#PBS -N iqtree_partition
-#PBS -l nodes=1:ppn=18
-#PBS -l mem=72gb
-#PBS -l walltime=72:00:00
-
-cd $PBS_O_WORKDIR/06_concatenation
-source ~/.bashrc
-conda activate phylo
-
-iqtree \
-  -s FcC_supermatrix.fas \
-  -spp partition_def.txt \
-  -nt 18 \
-  -safe \
-  -pre partition_search \
-  -m TESTMERGEONLY \
-  -mset MODEL_SET \
-  -msub nuclear \
-  -rcluster 10 \
-  -bb 1000 \
-  -alrt 1000
-```
-
-**Local machine:**
-```bash
-#!/bin/bash
-source ~/.bashrc
-conda activate phylo
-
-cd 06_concatenation
-
-iqtree \
-  -s FcC_supermatrix.fas \
-  -spp partition_def.txt \
-  -nt 18 \
-  -safe \
-  -pre partition_search \
-  -m TESTMERGEONLY \
-  -mset MODEL_SET \
-  -msub nuclear \
-  -rcluster 10 \
-  -bb 1000 \
-  -alrt 1000
-
-echo "Partition search complete! Best scheme: partition_search.best_scheme.nex"
+# Present customized script to user
+print(f"Save the following as {script_name}:\n")
+print(script)
+print(f"\nSubmit with: {submit_cmd} {script_name}")
 ```
 
 **Replace `MODEL_SET` with your selected models**, for example:
@@ -1673,101 +1549,41 @@ Estimate individual gene trees for coalescent-based species tree inference with 
 
 **Model Selection**: The `-m MFP` parameter (Model Finder Plus) will automatically test models from your selected model set and choose the best one for each gene. You can optionally specify `-mset MODEL_SET` to restrict the search to your chosen models, or use `-m MFP` to let IQ-TREE test a broader set.
 
-**SLURM array job:**
-```bash
-#!/bin/bash
-#SBATCH --job-name=iqtree_genes
-#SBATCH --array=1-NUM_LOCI
-#SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=4G
-#SBATCH --time=2:00:00
-#SBATCH --output=logs/%A_%a.genetree.out
+**Using templates** (recommended approach):
 
-source ~/.bashrc
-conda activate phylo
+```python
+# Read the appropriate template based on user's computing environment
+if scheduler == "slurm":
+    template = Read("templates/slurm/08c_gene_trees_array.job")
+    script = template.replace("NUM_LOCI", str(num_loci))
+    script_name = "run_gene_trees.job"
+    submit_cmd = "sbatch"
 
-cd trimmed_aa
+elif scheduler == "pbs":
+    template = Read("templates/pbs/08c_gene_trees_array.job")
+    script = template.replace("NUM_LOCI", str(num_loci))
+    script_name = "run_gene_trees.job"
+    submit_cmd = "qsub"
 
-# Create list of alignments if not present
-if [ ! -f locus_alignments.txt ]; then
-    ls *_trimmed.fas > locus_alignments.txt
-fi
+else:  # local
+    # Ask user: parallel or serial?
+    if user_has_gnu_parallel:
+        template = Read("templates/local/08c_gene_trees_parallel.sh")
+        script_name = "run_gene_trees_parallel.sh"
+    else:
+        template = Read("templates/local/08c_gene_trees_serial.sh")
+        script_name = "run_gene_trees_serial.sh"
 
-locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" locus_alignments.txt)
+    script = template  # No placeholders to replace for local scripts
+    submit_cmd = "bash"
 
-iqtree \
-  -s ${locus} \
-  -m MFP \
-  -bb 1000 \
-  -pre $(basename ${locus} _trimmed.fas) \
-  -nt 1
+# Present customized script to user
+print(f"Save the following as {script_name}:\n")
+print(script)
+print(f"\nRun with: {submit_cmd} {script_name}")
 ```
 
-**PBS array job:**
-```bash
-#!/bin/bash
-#PBS -N iqtree_genes
-#PBS -t 1-NUM_LOCI
-#PBS -l nodes=1:ppn=1
-#PBS -l mem=4gb
-#PBS -l walltime=2:00:00
-
-cd $PBS_O_WORKDIR/trimmed_aa
-source ~/.bashrc
-conda activate phylo
-
-# Create list of alignments if not present
-if [ ! -f locus_alignments.txt ]; then
-    ls *_trimmed.fas > locus_alignments.txt
-fi
-
-locus=$(sed -n "${PBS_ARRAYID}p" locus_alignments.txt)
-
-iqtree \
-  -s ${locus} \
-  -m MFP \
-  -bb 1000 \
-  -pre $(basename ${locus} _trimmed.fas) \
-  -nt 1
-```
-
-**Local with GNU parallel:**
-```bash
-#!/bin/bash
-source ~/.bashrc
-conda activate phylo
-
-cd trimmed_aa
-
-# Create list of alignments
-ls *_trimmed.fas > locus_alignments.txt
-
-# Run IQ-TREE in parallel (adjust -j for number of concurrent jobs)
-cat locus_alignments.txt | parallel -j 4 '
-  prefix=$(basename {} _trimmed.fas)
-  iqtree -s {} -m MFP -bb 1000 -pre ${prefix} -nt 1
-  echo "Tree complete: ${prefix}"
-'
-
-echo "All gene trees complete!"
-```
-
-**Local serial (for debugging or limited resources):**
-```bash
-#!/bin/bash
-source ~/.bashrc
-conda activate phylo
-
-cd trimmed_aa
-
-for locus in *_trimmed.fas; do
-    prefix=$(basename ${locus} _trimmed.fas)
-    echo "Processing ${prefix}..."
-    iqtree -s ${locus} -m MFP -bb 1000 -pre ${prefix} -nt 1
-done
-
-echo "All gene trees complete!"
-```
+**Note**: Count your loci first: `cd trimmed_aa && ls *_trimmed.fas | wc -l`
 
 #### Part 8D: ASTRAL Species Tree
 
@@ -1968,31 +1784,43 @@ Provide users with summary of outputs:
 5. **No manual downloads required**: Setup script handles all Perl scripts and conda packages
 6. **Detect computing environment**: Use bash commands to check for `sbatch`, `qsub`, `parallel` before asking questions
 
+### Template Usage (IMPORTANT!)
+7. **Prefer templates over inline code**: Use `templates/` directory for major scripts (compleasm, IQ-TREE steps)
+8. **Template workflow**:
+   - Read: `Read("templates/slurm/02_compleasm_first.job")`
+   - Replace placeholders: TOTAL_THREADS, LINEAGE, NUM_GENOMES, MODEL_SET
+   - Present customized script to user
+9. **Available templates**:
+   - Step 2: `02_compleasm_first`, `02_compleasm_parallel` (SLURM/PBS/local)
+   - Step 8A: `08a_partition_search` (SLURM/PBS/local)
+   - Step 8C: `08c_gene_trees_array`, `08c_gene_trees_parallel`, `08c_gene_trees_serial`
+10. **Benefits**: Reduces token usage, easier maintenance, consistent structure
+
 ### Script Generation
-7. **Always adapt scripts** to user's specific scheduler (SLURM/PBS/local/cloud)
-8. **Replace placeholders**: N (array size), LINEAGE, NUM_LOCI, THREADS, MODEL_SET, paths
-9. **Never auto-detect CPU cores**: Always ask user how many cores to use, never use `nproc` or similar auto-detection
-10. **Provide all parallelization options**: For each parallelizable step, provide SLURM array, PBS array, and GNU parallel templates
-11. **Scheduler-specific configuration**: For SLURM/PBS, always ask about account, partition, email notifications, and log directories
+11. **Always adapt scripts** to user's specific scheduler (SLURM/PBS/local/cloud)
+12. **Replace placeholders**: N (array size), LINEAGE, NUM_LOCI, THREADS, MODEL_SET, paths
+13. **Never auto-detect CPU cores**: Always ask user how many cores to use, never use `nproc` or similar auto-detection
+14. **Provide all parallelization options**: For each parallelizable step, provide SLURM array, PBS array, and GNU parallel templates
+15. **Scheduler-specific configuration**: For SLURM/PBS, always ask about account, partition, email notifications, and log directories
 
 ### Parallelization Strategy
-12. **Ask about parallelization preferences**: Let user choose between throughput optimization vs. simplicity
-13. **Compleasm optimization**: For ≥2 genomes and ≥16 cores, recommend the two-phase approach (Option A: first genome solo, then parallel) for better resource utilization
-14. **Threading guidelines**: Use the threading allocation table in STEP 2 to optimize concurrent jobs and threads per job based on available cores
-15. **Parallelizable steps**: Always provide parallel options for Steps 2 (compleasm), 5 (MAFFT), 6 (trimming), and 8C (gene trees)
+16. **Ask about parallelization preferences**: Let user choose between throughput optimization vs. simplicity
+17. **Compleasm optimization**: For ≥2 genomes and ≥16 cores, recommend the two-phase approach (Option A: first genome solo, then parallel) for better resource utilization
+18. **Threading guidelines**: Use the threading allocation table in STEP 2 to optimize concurrent jobs and threads per job based on available cores
+19. **Parallelizable steps**: Always provide parallel options for Steps 2 (compleasm), 5 (MAFFT), 6 (trimming), and 8C (gene trees)
 
 ### Substitution Model Selection
-16. **Always recommend models**: Use the substitution model recommendation system (Question 9) - fetch IQ-TREE docs and analyze dataset characteristics
-17. **Model recommendation factors**: Consider taxonomic scope, number of taxa, evolutionary rates, and sequence type
-18. **Replace MODEL_SET placeholder**: In Step 8A scripts, replace with comma-separated model list (e.g., "LG,WAG,JTT,Q.pfam")
-19. **Taxonomically-targeted models**: Suggest Q.bird, Q.mammal, Q.insect, Q.plant, Q.yeast when applicable
+20. **Always recommend models**: Use the substitution model recommendation system (Question 9) - fetch IQ-TREE docs and analyze dataset characteristics
+21. **Model recommendation factors**: Consider taxonomic scope, number of taxa, evolutionary rates, and sequence type
+22. **Replace MODEL_SET placeholder**: In Step 8A scripts, replace with comma-separated model list (e.g., "LG,WAG,JTT,Q.pfam")
+23. **Taxonomically-targeted models**: Suggest Q.bird, Q.mammal, Q.insect, Q.plant, Q.yeast when applicable
 
 ### Organization & Documentation
-20. **Provide clear directory structure**: Help users organize their workflow with numbered step directories
-21. **Methods paragraph customization**: Pre-fill known values and remove unused tool descriptions
-22. **Estimate run times**: Use `REFERENCE.md` resource table
-23. **Recommend checkpoints**: Suggest inspecting outputs after each major step
-24. **Complete citations provided**: All references with DOIs included in methods paragraph
+24. **Provide clear directory structure**: Help users organize their workflow with numbered step directories
+25. **Methods paragraph customization**: Pre-fill known values and remove unused tool descriptions
+26. **Estimate run times**: Use `REFERENCE.md` resource table
+27. **Recommend checkpoints**: Suggest inspecting outputs after each major step
+28. **Complete citations provided**: All references with DOIs included in methods paragraph
 
 ---
 
