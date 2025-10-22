@@ -40,18 +40,48 @@ The complete phylogenomics pipeline:
 
 When a user requests phylogeny generation, **ALWAYS start by asking these questions**:
 
+### Step 1: Detect Computing Environment
+
+**Before asking questions**, attempt to detect the local computing environment to guide the user:
+
+```python
+# Check for job schedulers
+has_slurm = check_command("sbatch")
+has_pbs = check_command("qsub")
+has_parallel = check_command("parallel")
+
+# Report findings
+if has_slurm:
+    print("✓ SLURM detected on this system")
+elif has_pbs:
+    print("✓ PBS/Torque detected on this system")
+elif has_parallel:
+    print("✓ GNU parallel detected (suitable for local parallelization)")
+else:
+    print("ℹ No job scheduler detected (local machine)")
+```
+
+**Important**: The user may be generating scripts for a **different** system than the one they're currently on. Always ask for confirmation.
+
 ### Required Information
 
 1. **Computing Environment**
-   - SLURM cluster, PBS/Torque cluster, Cloud computing, or Local machine?
+   - Where will these scripts run?
+     - SLURM cluster
+     - PBS/Torque cluster
+     - Cloud computing (specify: AWS, GCP, Azure)
+     - Local machine
+   - [If detected environment differs] "I detected [X] on this machine. Will you be running the scripts here or on a different system?"
 
 2. **Input Data**
    - Local genome files, NCBI accessions, or both?
    - If NCBI: Assembly accessions (GCA_*/GCF_*) or BioProject accessions (PRJNA*/PRJEB*/PRJDA*)?
    - If local files: What are the file paths?
 
-3. **Taxonomic Scope**
+3. **Taxonomic Scope & Dataset Details**
    - What taxonomic group? (determines BUSCO lineage dataset)
+   - How many taxa/genomes will you analyze?
+   - What is the approximate phylogenetic breadth? (closely related species, genus-level, family-level, order-level, etc.)
    - See `REFERENCE.md` for complete lineage list
 
 4. **Environment Management**
@@ -60,13 +90,68 @@ When a user requests phylogeny generation, **ALWAYS start by asking these questi
    - If separate: individual conda environments per step (advanced users only)
 
 5. **Resource Constraints**
-   - How many CPU cores/threads would you like to use per job? (Ask user to specify, do not auto-detect)
-   - Available memory (RAM)?
-   - Maximum walltime?
+   - How many CPU cores/threads would you like to use **in total**? (Ask user to specify, do not auto-detect)
+   - Available memory (RAM) per node/machine?
+   - Maximum walltime for jobs?
    - See `REFERENCE.md` for resource recommendations
 
-6. **Alignment Trimming Preference**
-   - Aliscore/ALICUT (traditional), trimAl (fast), BMGE (entropy-based), or ClipKit (modern)?
+6. **Parallelization Strategy**
+
+   **IMPORTANT**: Multiple pipeline steps can benefit from parallelization. Ask the user how they want to handle parallel processing:
+
+   - **For job schedulers (SLURM/PBS)**:
+     - Use array jobs for parallel steps? (Recommended: Yes)
+     - Which steps to parallelize?
+       - ✓ Step 2: Ortholog identification (compleasm) - recommended
+       - ✓ Step 5: Alignment (MAFFT) - recommended
+       - ✓ Step 6: Alignment trimming - recommended
+       - ✓ Step 8C: Individual gene trees - recommended
+
+   - **For local machines**:
+     - Use GNU parallel for parallel steps? (requires `parallel` to be installed)
+     - How many concurrent jobs? (Consider: cores ÷ threads_per_job)
+
+   - **For all systems**:
+     - Should I optimize for maximum throughput or simplicity?
+       - Throughput: Use sophisticated parallel strategies (e.g., two-phase compleasm)
+       - Simplicity: Use serial processing (easier to debug, no coordination needed)
+
+7. **Scheduler-Specific Configuration** (if using SLURM or PBS)
+
+   Ask these additional questions for job scheduler systems:
+
+   - **Account/Username**: What account should be charged for compute time? (for `--account` or `-A`)
+   - **Partition/Queue**: Which partition/queue should jobs be submitted to? (e.g., "normal", "compute", "long")
+   - **Email Notifications**:
+     - Would you like email notifications for job status?
+     - If yes, what email address?
+     - When? (START, END, FAIL, ALL)
+   - **Job Dependencies**: Should jobs wait for previous steps to complete automatically? (Recommended: Yes for linear workflow)
+   - **Output Logs**: Where should log files be written? (Default: `logs/` directory)
+
+8. **Alignment Trimming Preference**
+   - Aliscore/ALICUT (traditional, thorough), trimAl (fast), BMGE (entropy-based), or ClipKit (modern)?
+
+9. **Substitution Model Selection** (for IQ-TREE phylogenetic inference)
+
+   **Context needed**:
+   - Taxonomic breadth: [from question 3]
+   - Number of taxa: [from question 3]
+   - Expected evolutionary rates: Fast-evolving, moderate, or slow-evolving group?
+
+   **Action**: Fetch IQ-TREE model documentation and suggest 3-5 appropriate amino acid substitution models based on:
+   - Dataset size (number of taxa and alignment length)
+   - Taxonomic scope (closely related vs. deep phylogeny)
+   - Evolutionary rates
+   - Common practice in the field
+
+   Present suggestions with justifications, then ask:
+   - Use recommended model set for automated selection? (Recommended)
+   - Or specify custom models? (Advanced users)
+
+   **Models will be used in**:
+   - Step 8A: Partition model search (`-mset` parameter)
+   - Step 8C: Individual gene tree inference (`-m MFP` with model set)
 
 ---
 
