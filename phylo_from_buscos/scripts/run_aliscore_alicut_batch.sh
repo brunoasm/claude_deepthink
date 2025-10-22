@@ -211,9 +211,9 @@ for ALIGNMENT in "${ALIGNMENTS[@]}"; do
         cp "${TRIMMED_FILE}" "${OUTPUT_DIR}/${LOCUS}_trimmed.fas"
         echo "Trimmed alignment: ${OUTPUT_DIR}/${LOCUS}_trimmed.fas"
 
-        # Calculate statistics
-        ORIGINAL_LENGTH=$(head -n 2 "${ALIGNMENT}" | tail -n 1 | tr -d '\n ' | wc -c)
-        TRIMMED_LENGTH=$(head -n 2 "${TRIMMED_FILE}" | tail -n 1 | tr -d '\n ' | wc -c)
+        # Calculate statistics (handle multi-line FASTA format)
+        ORIGINAL_LENGTH=$(awk '/^>/ {if (seq) {print seq; seq=""}; next} {seq = seq $0} END {if (seq) print seq}' "${ALIGNMENT}" | head -n 1 | tr -d ' ' | wc -c)
+        TRIMMED_LENGTH=$(awk '/^>/ {if (seq) {print seq; seq=""}; next} {seq = seq $0} END {if (seq) print seq}' "${TRIMMED_FILE}" | head -n 1 | tr -d ' ' | wc -c)
         REMOVED_LENGTH=$((ORIGINAL_LENGTH - TRIMMED_LENGTH))
         PERCENT_REMOVED=$(awk "BEGIN {printf \"%.2f\", (${REMOVED_LENGTH}/${ORIGINAL_LENGTH})*100}")
 

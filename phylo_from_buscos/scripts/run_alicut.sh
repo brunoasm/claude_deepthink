@@ -212,10 +212,10 @@ if [ $? -eq 0 ]; then
         echo "Output files:"
         ls -lh ALICUT_* 2>/dev/null
 
-        # Calculate and report trimming statistics
+        # Calculate and report trimming statistics (handle multi-line FASTA format)
         if [ -f "${OUTPUT_FILE}" ]; then
-            ORIGINAL_LENGTH=$(head -n 2 "${FASTA_FILE}" | tail -n 1 | tr -d '\n' | wc -c)
-            TRIMMED_LENGTH=$(head -n 2 "${OUTPUT_FILE}" | tail -n 1 | tr -d '\n' | wc -c)
+            ORIGINAL_LENGTH=$(awk '/^>/ {if (seq) {print seq; seq=""}; next} {seq = seq $0} END {if (seq) print seq}' "${FASTA_FILE}" | head -n 1 | wc -c)
+            TRIMMED_LENGTH=$(awk '/^>/ {if (seq) {print seq; seq=""}; next} {seq = seq $0} END {if (seq) print seq}' "${OUTPUT_FILE}" | head -n 1 | wc -c)
             REMOVED_LENGTH=$((ORIGINAL_LENGTH - TRIMMED_LENGTH))
             PERCENT_REMOVED=$(awk "BEGIN {printf \"%.1f\", (${REMOVED_LENGTH}/${ORIGINAL_LENGTH})*100}")
 

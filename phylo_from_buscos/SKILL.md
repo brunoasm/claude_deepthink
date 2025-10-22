@@ -70,6 +70,51 @@ When a user requests phylogeny generation, **ALWAYS start by asking these questi
 
 ---
 
+## Recommended Directory Structure
+
+**IMPORTANT**: Organize your analysis with dedicated folders for each pipeline step. This improves navigation, debugging, and reproducibility.
+
+```
+project_name/
+├── logs/                          # All log files from all steps
+├── 00_genomes/                    # Input genome assemblies
+├── 01_busco_results/              # BUSCO/compleasm outputs
+│   ├── species1/
+│   └── species2/
+├── 02_qc/                         # Quality control reports
+├── 03_extracted_orthologs/        # Extracted single-copy orthologs
+│   ├── raw/
+│   └── filtered/
+├── 04_alignments/                 # Multiple sequence alignments
+├── 05_trimmed/                    # Trimmed alignments
+│   └── trimming_stats/
+├── 06_concatenation/              # Supermatrix and partition files
+│   ├── FcC_supermatrix.fas
+│   ├── FcC_info.xls
+│   └── partition_def.txt
+├── 07_partition_search/           # Partition model selection
+├── 08_concatenated_tree/          # Concatenated ML tree
+├── 09_gene_trees/                 # Individual gene trees
+├── 10_species_tree/               # ASTRAL species tree
+└── scripts/                       # All analysis scripts
+```
+
+**Key Benefits:**
+- **Easy debugging**: All logs in one place, step outputs separated
+- **Clear workflow**: Directory names show pipeline progression
+- **Reproducibility**: Self-documenting structure
+- **File management**: Prevents clutter in root directory
+
+**Usage Note**: When generating scripts, create output directories and redirect logs appropriately:
+```bash
+mkdir -p logs 06_concatenation
+cd 05_trimmed
+perl ../scripts/FASconCAT-G.pl -s -i 2>&1 | tee ../logs/concatenation.log
+mv FcC_* ../06_concatenation/
+```
+
+---
+
 ## Workflow Implementation
 
 Once you have the required information, guide the user through these steps:
@@ -987,7 +1032,7 @@ FASconCAT is a Perl script for concatenating multiple sequence alignments. Downl
 conda activate phylo
 
 # Download FASconCAT-G
-wget https://github.com/PatrickKueck/FASconCAT-G/raw/master/FASconCAT-G_v1.05.pl -O FASconCAT-G.pl
+wget https://raw.githubusercontent.com/PatrickKueck/FASconCAT-G/master/FASconCAT-G_v1.06.1.pl -O FASconCAT-G.pl
 chmod +x FASconCAT-G.pl
 
 # Alternative: download from ZFMK
@@ -1014,8 +1059,9 @@ python ../scripts/convert_fasconcat_to_partition.py FcC_info.xls partition_def.t
 ```
 
 Outputs:
-- `FcC_smatrix.fas` - concatenated supermatrix
-- `partition_def.txt` - partition definitions for IQ-TREE
+- `FcC_supermatrix.fas` - concatenated supermatrix (output by FASconCAT-G)
+- `FcC_info.xls` - concatenation info (output by FASconCAT-G)
+- `partition_def.txt` - partition definitions for IQ-TREE (created by conversion script)
 
 ---
 
@@ -1040,8 +1086,8 @@ conda activate phylo
 source ~/.bashrc
 conda activate phylo
 
-iqtree2 \
-  -s FcC_smatrix.fas \
+iqtree \
+  -s FcC_supermatrix.fas \
   -spp partition_def.txt \
   -nt ${SLURM_CPUS_PER_TASK} \
   -safe \
@@ -1063,8 +1109,8 @@ iqtree2 \
 source ~/.bashrc
 conda activate phylo
 
-iqtree2 \
-  -s FcC_smatrix.fas \
+iqtree \
+  -s FcC_supermatrix.fas \
   -spp partition_search.best_scheme.nex \
   -nt ${SLURM_CPUS_PER_TASK} \
   -safe \
@@ -1088,7 +1134,7 @@ cd $PBS_O_WORKDIR
 source ~/.bashrc
 conda activate phylo
 
-iqtree2 -s FcC_smatrix.fas -spp partition_search.best_scheme.nex \
+iqtree -s FcC_supermatrix.fas -spp partition_search.best_scheme.nex \
   -nt 18 -safe -pre concatenated_ML_tree -m MFP -bb 1000 -bnni
 ```
 
@@ -1109,7 +1155,7 @@ conda activate phylo
 cd trimmed_aa
 locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" locus_alignments.txt)
 
-iqtree2 \
+iqtree \
   -s ${locus} \
   -m MFP \
   -bb 1000 \
@@ -1178,7 +1224,7 @@ After trimming, alignments containing fewer than [MIN_LENGTH] informative positi
 
 #### Concatenated Analysis
 
-Trimmed alignments were concatenated into a supermatrix using FASconCAT-G v1.05 (Kück & Longo, 2014), yielding a final alignment of [TOTAL_LENGTH] amino acid positions across [NUMBER] partitions. We performed partitioned maximum likelihood (ML) phylogenetic inference using IQ-TREE v2.3 (Minh et al., 2020). The best-fit partitioning scheme and substitution models were selected using ModelFinder (Kalyaanamoorthy et al., 2017) with the TESTMERGEONLY option and LG+G model set. Partitions were merged if they shared the same evolutionary model to reduce model complexity. Branch support was assessed using 1,000 ultrafast bootstrap replicates (Hoang et al., 2018) with the -bnni option to reduce potential overestimation of branch support.
+Trimmed alignments were concatenated into a supermatrix using FASconCAT-G v1.06.1 (Kück & Longo, 2014), yielding a final alignment of [TOTAL_LENGTH] amino acid positions across [NUMBER] partitions. We performed partitioned maximum likelihood (ML) phylogenetic inference using IQ-TREE v2.3 (Minh et al., 2020). The best-fit partitioning scheme and substitution models were selected using ModelFinder (Kalyaanamoorthy et al., 2017) with the TESTMERGEONLY option and LG+G model set. Partitions were merged if they shared the same evolutionary model to reduce model complexity. Branch support was assessed using 1,000 ultrafast bootstrap replicates (Hoang et al., 2018) with the -bnni option to reduce potential overestimation of branch support.
 
 #### Coalescent-Based Species Tree
 
@@ -1272,7 +1318,7 @@ Provide users with summary of outputs:
 
 ### Data and Quality Control
 4. **`qc_report.csv`** - Genome quality control statistics
-5. **`FcC_smatrix.fas`** - Concatenated alignment supermatrix
+5. **`FcC_supermatrix.fas`** - Concatenated alignment supermatrix
 6. **`partition_search.best_scheme.nex`** - Selected partitioning scheme
 
 ### Publication Materials
