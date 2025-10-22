@@ -200,6 +200,130 @@ mv FcC_* ../06_concatenation/
 
 ---
 
+## Substitution Model Recommendation
+
+**When asked question 9 (Substitution Model Selection)**, follow this process to recommend appropriate amino acid substitution models:
+
+### Step 1: Fetch IQ-TREE Model Documentation
+
+Use WebFetch to retrieve the latest model information:
+```
+WebFetch(url="https://iqtree.github.io/doc/Substitution-Models",
+         prompt="Extract all amino acid substitution models with descriptions and usage guidelines")
+```
+
+### Step 2: Analyze Dataset Characteristics
+
+Consider the following factors from user responses:
+
+1. **Taxonomic Scope** (from question 3):
+   - **Closely related (species/genus level)**: More parameter-rich models, less saturation
+   - **Moderate (family/order level)**: General-purpose models
+   - **Deep (class/phylum+ level)**: Robust models handling saturation
+
+2. **Number of Taxa** (from question 3):
+   - **< 20 taxa**: Avoid parameter-rich models (e.g., GTR20)
+   - **20-50 taxa**: Standard models work well
+   - **> 50 taxa**: Can use mixture models (e.g., C10-C60, LG4M)
+
+3. **Evolutionary Rates** (from question 9):
+   - **Fast-evolving**: Consider mixture models for rate heterogeneity
+   - **Moderate**: General-purpose models sufficient
+   - **Slow-evolving**: Simpler models may suffice
+
+4. **Sequence Type** (inferred from workflow):
+   - **Nuclear proteins**: LG, WAG, JTT, Q.pfam
+   - **Mitochondrial**: mtREV, mtZOA, mtMAM, mtART, mtVer, mtInv
+   - **Chloroplast**: cpREV
+
+### Step 3: Model Recommendation Matrix
+
+Based on the analysis, recommend 3-5 models using this decision tree:
+
+#### For Nuclear Proteins (most phylogenomics workflows):
+
+**Deep Phylogeny (class+ level), Many Taxa (>50)**:
+1. **LG+F+G4** or **LG+F+R** - Best general model, widely used
+2. **WAG+F+G4** - Alternative general model
+3. **LG4X** or **LG4M** - Mixture models for heterogeneity
+4. **Q.pfam+F+G4** - Database-derived, broad taxonomic sampling
+5. **JTT+F+G4** - Classical alternative
+
+**Moderate Phylogeny (family/order level), Moderate Taxa (20-50)**:
+1. **LG+F+G4** - Top choice for most analyses
+2. **WAG+F+G4** - Reliable alternative
+3. **JTT+F+G4** - Classical model
+4. **Q.pfam+F+G4** - Database-derived option
+
+**Shallow Phylogeny (species/genus level), Few Taxa (<20)**:
+1. **LG+F+G4** - Still recommended default
+2. **WAG+F+G4** - Good alternative
+3. **JTT+F+G4** - Classical option
+
+#### Taxonomically-Targeted Models (if applicable):
+
+- **Birds**: Q.bird+F+G4
+- **Mammals**: Q.mammal+F+G4, mtMAM (if mtDNA)
+- **Insects**: Q.insect+F+G4, mtART (if mtDNA)
+- **Plants**: Q.plant+F+G4, cpREV (if chloroplast)
+- **Yeasts/Fungi**: Q.yeast+F+G4
+
+#### Model Notation Explained:
+- **LG, WAG, JTT**: Empirical exchange rate matrix name
+- **+F**: Use empirical amino acid frequencies from data (recommended)
+- **+G4**: Gamma model with 4 rate categories for among-site rate variation
+- **+R**: FreeRate model (alternative to Gamma, often better but slower)
+
+### Step 4: Present Recommendations with Justifications
+
+Format your recommendation like this:
+
+```markdown
+### Recommended Substitution Models for Your Dataset
+
+Based on your dataset ([NUMBER] taxa, [TAXONOMIC_SCOPE] phylogenetic breadth, [SEQUENCE_TYPE]):
+
+**Primary Recommendations** (use all in model testing):
+
+1. **LG+F+G4**
+   - **Why**: Most widely used modern AA model, performs well across diverse datasets
+   - **Citations**: Proven effective in [relevant papers for user's taxonomic group]
+
+2. **WAG+F+G4**
+   - **Why**: Excellent general-purpose alternative, often comparable to LG
+   - **Use case**: Good backup if LG shows poor fit
+
+3. **JTT+F+G4**
+   - **Why**: Classical model still widely used, allows comparison with older studies
+   - **Use case**: Historical comparisons
+
+[Add 2-3 more specific to their data...]
+
+**For IQ-TREE Step 8A**, we'll use these models in the partition search:
+```bash
+-mset LG,WAG,JTT,Q.pfam  # Model set for testing
+-m TESTMERGEONLY          # Test models and merge partitions
+```
+
+**For Step 8C (gene trees)**, we'll use:
+```bash
+-m MFP  # Model Finder Plus (tests models from our set)
+```
+
+Would you like to:
+1. ✓ Use these recommended models (recommended)
+2. Specify a custom model set
+3. Let me fetch more information about your specific taxonomic group
+```
+
+### Step 5: Handle User Response
+
+- **If user accepts**: Store model string (e.g., "LG,WAG,JTT,Q.pfam") for use in Step 8 scripts
+- **If user requests custom**: Ask for comma-separated list, validate against IQ-TREE docs
+- **If user needs more info**: Fetch additional resources specific to their taxonomic group
+
+---
+
 ## Workflow Implementation
 
 Once you have the required information, guide the user through these steps:
