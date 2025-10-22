@@ -28,7 +28,15 @@ for dir in *_compleasm; do
   fi
 
   genome=$(basename "${dir}" _compleasm)
-  marker_file="${dir}/${LINEAGE}_odb10/gene_marker.fasta"
+
+  # Auto-detect the OrthoDB version (odb10, odb11, odb12, etc.)
+  odb_dirs=("${dir}/${LINEAGE}_odb"*)
+  if [ -d "${odb_dirs[0]}" ]; then
+    marker_file="${odb_dirs[0]}/gene_marker.fasta"
+  else
+    echo "  Warning: No OrthoDB directory found for ${genome}" >&2
+    continue
+  fi
 
   if [ -f "${marker_file}" ]; then
     cp "${marker_file}" "single_copy_orthologs/${genome}.fasta"
