@@ -18,4 +18,7 @@ Thumbs.db
 phylo_from_buscos/info_to_craft_skill/
 
 # Python files
-__pycache__
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
