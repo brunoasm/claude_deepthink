@@ -1040,7 +1040,7 @@ conda activate phylo
 source ~/.bashrc
 conda activate phylo
 
-iqtree2 \
+iqtree \
   -s FcC_smatrix.fas \
   -spp partition_def.txt \
   -nt ${SLURM_CPUS_PER_TASK} \
@@ -1063,7 +1063,7 @@ iqtree2 \
 source ~/.bashrc
 conda activate phylo
 
-iqtree2 \
+iqtree \
   -s FcC_smatrix.fas \
   -spp partition_search.best_scheme.nex \
   -nt ${SLURM_CPUS_PER_TASK} \
@@ -1088,7 +1088,7 @@ cd $PBS_O_WORKDIR
 source ~/.bashrc
 conda activate phylo
 
-iqtree2 -s FcC_smatrix.fas -spp partition_search.best_scheme.nex \
+iqtree -s FcC_smatrix.fas -spp partition_search.best_scheme.nex \
   -nt 18 -safe -pre concatenated_ML_tree -m MFP -bb 1000 -bnni
 ```
 
@@ -1109,7 +1109,7 @@ conda activate phylo
 cd trimmed_aa
 locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" locus_alignments.txt)
 
-iqtree2 \
+iqtree \
   -s ${locus} \
   -m MFP \
   -bb 1000 \

@@ -867,6 +867,9 @@ mkdir -p $CONDA_PREFIX/bin
 cp iqtree-2.3.6-Linux-intel/bin/iqtree2 $CONDA_PREFIX/bin/
 chmod +x $CONDA_PREFIX/bin/iqtree2
 
+# Create symlink for version-agnostic usage
+ln -sf $CONDA_PREFIX/bin/iqtree2 $CONDA_PREFIX/bin/iqtree
+
 # Cleanup
 cd ~
 rm -rf /tmp/phylo_downloads
@@ -888,6 +891,9 @@ tar -xzf iqtree-2.3.6-macOS-intel.tar.gz
 mkdir -p $CONDA_PREFIX/bin
 cp iqtree-2.3.6-macOS-intel/bin/iqtree2 $CONDA_PREFIX/bin/
 chmod +x $CONDA_PREFIX/bin/iqtree2
+
+# Create symlink for version-agnostic usage
+ln -sf $CONDA_PREFIX/bin/iqtree2 $CONDA_PREFIX/bin/iqtree
 
 # Cleanup
 cd ~
@@ -911,6 +917,9 @@ mkdir -p $CONDA_PREFIX/bin
 cp iqtree-2.3.6-macOS-arm/bin/iqtree2 $CONDA_PREFIX/bin/
 chmod +x $CONDA_PREFIX/bin/iqtree2
 
+# Create symlink for version-agnostic usage
+ln -sf $CONDA_PREFIX/bin/iqtree2 $CONDA_PREFIX/bin/iqtree
+
 # Cleanup
 cd ~
 rm -rf /tmp/phylo_downloads
@@ -919,6 +928,8 @@ rm -rf /tmp/phylo_downloads
 **Verify installation:**
 
 ```bash
+iqtree --version
+# or
 iqtree2 --version
 ```
 
@@ -1010,7 +1021,7 @@ check_cmd mafft
 check_cmd trimal
 check_cmd bmge
 check_cmd clipkit
-check_cmd iqtree2 || check_cmd iqtree
+check_cmd iqtree || check_cmd iqtree2
 check_cmd astral
 
 echo ""
@@ -1055,6 +1066,9 @@ echo "--------------------------"
 # Check manually installed IQ-TREE
 if [ -f "$CONDA_PREFIX/bin/iqtree2" ] && [ ! -L "$CONDA_PREFIX/bin/iqtree2" ]; then
     echo "✓ IQ-TREE2 binary (manually installed)"
+    if [ -L "$CONDA_PREFIX/bin/iqtree" ]; then
+        echo "  ✓ iqtree symlink present"
+    fi
 fi
 
 # Check manually installed ASTRAL
