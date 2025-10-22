@@ -963,15 +963,15 @@ Based on user's preference, provide appropriate method:
 
 #### Option A: trimAl (Fast, recommended for large datasets)
 
+**SLURM array job:**
 ```bash
-conda activate phylo  # Already contains trimAl
-
-# Array job for SLURM
 #!/bin/bash
 #SBATCH --job-name=trimal_array
 #SBATCH --array=1-NUM_LOCI
+#SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=2G
 #SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.trimal.out
 
 source ~/.bashrc
 conda activate phylo
@@ -985,21 +985,162 @@ output=$(basename ${locus} _aligned.fas)_trimmed.fas
 trimal -in ${locus} -out ../trimmed_aa/${output} -automated1
 ```
 
+**PBS array job:**
+```bash
+#!/bin/bash
+#PBS -N trimal_array
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=2gb
+#PBS -l walltime=2:00:00
+
+cd $PBS_O_WORKDIR/aligned_aa
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${PBS_ARRAYID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+trimal -in ${locus} -out ../trimmed_aa/${output} -automated1
+```
+
+**Local with GNU parallel:**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+# Process alignments in parallel (adjust -j for number of concurrent jobs)
+cat aligned_loci.txt | parallel -j 4 '
+  output=$(basename {} _aligned.fas)_trimmed.fas
+  trimal -in {} -out ../trimmed_aa/${output} -automated1
+  echo "Trimmed: ${output}"
+'
+```
+
 #### Option B: ClipKit (Modern, fast)
 
+**SLURM array job:**
 ```bash
-conda activate phylo  # Already contains ClipKit
+#!/bin/bash
+#SBATCH --job-name=clipkit_array
+#SBATCH --array=1-NUM_LOCI
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=2G
+#SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.clipkit.out
 
-# Similar array structure
-clipkit ${locus} -o ../trimmed_aa/$(basename ${locus} _aligned.fas)_trimmed.fas
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+clipkit ${locus} -o ../trimmed_aa/${output}
+```
+
+**PBS array job:**
+```bash
+#!/bin/bash
+#PBS -N clipkit_array
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=2gb
+#PBS -l walltime=2:00:00
+
+cd $PBS_O_WORKDIR/aligned_aa
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${PBS_ARRAYID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+clipkit ${locus} -o ../trimmed_aa/${output}
+```
+
+**Local with GNU parallel:**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+cat aligned_loci.txt | parallel -j 4 '
+  output=$(basename {} _aligned.fas)_trimmed.fas
+  clipkit {} -o ../trimmed_aa/${output}
+'
 ```
 
 #### Option C: BMGE (Entropy-based)
 
+**SLURM array job:**
 ```bash
-conda activate phylo  # Already contains BMGE
+#!/bin/bash
+#SBATCH --job-name=bmge_array
+#SBATCH --array=1-NUM_LOCI
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=2G
+#SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.bmge.out
 
-bmge -i ${locus} -t AA -o ../trimmed_aa/$(basename ${locus} _aligned.fas)_trimmed.fas
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+bmge -i ${locus} -t AA -o ../trimmed_aa/${output}
+```
+
+**PBS array job:**
+```bash
+#!/bin/bash
+#PBS -N bmge_array
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=2gb
+#PBS -l walltime=2:00:00
+
+cd $PBS_O_WORKDIR/aligned_aa
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${PBS_ARRAYID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+bmge -i ${locus} -t AA -o ../trimmed_aa/${output}
+```
+
+**Local with GNU parallel:**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+cat aligned_loci.txt | parallel -j 4 '
+  output=$(basename {} _aligned.fas)_trimmed.fas
+  bmge -i {} -t AA -o ../trimmed_aa/${output}
+'
 ```
 
 #### Option D: Aliscore/ALICUT (Traditional, recommended for phylogenomics)
@@ -1029,7 +1170,7 @@ This will:
 3. Generate `trimmed_aa/` with all trimmed alignments
 4. Create `trimming_summary.txt` with statistics
 
-**Method 2: Array Jobs (For HPC clusters)**
+**Method 2: SLURM Array Jobs**
 
 For SLURM clusters, use the individual wrapper scripts **`scripts/run_aliscore.sh`** and **`scripts/run_alicut.sh`**:
 
@@ -1048,6 +1189,7 @@ num_loci=$(wc -l < locus_list.txt)
 #SBATCH --output=logs/%A_%a.aliscore.out
 
 source ~/.bashrc
+conda activate phylo
 
 # Run Aliscore using wrapper
 bash ../scripts/run_aliscore.sh -N
@@ -1058,7 +1200,7 @@ bash ../scripts/run_aliscore.sh -N
 After all Aliscore jobs complete:
 
 ```bash
-# Step 2: ALICUT array job or batch processing
+# Step 2: ALICUT batch processing (collect trimmed alignments)
 for dir in aliscore_output/aliscore_*/; do
     bash ../scripts/run_alicut.sh "${dir}" -s
 done
@@ -1073,6 +1215,107 @@ for dir in aliscore_output/aliscore_*/; do
     fi
 done
 ```
+
+**Method 3: PBS Array Jobs**
+
+For PBS/Torque clusters:
+
+```bash
+cd aligned_aa
+ls *.fas > locus_list.txt
+num_loci=$(wc -l < locus_list.txt)
+
+# Step 1: Aliscore array job (save as 01_aliscore_array.pbs)
+#!/bin/bash
+#PBS -N aliscore_array
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=2gb
+#PBS -l walltime=4:00:00
+
+cd $PBS_O_WORKDIR/aligned_aa
+source ~/.bashrc
+conda activate phylo
+
+# Run Aliscore using wrapper
+bash ../scripts/run_aliscore.sh -N
+```
+
+Submit with: `qsub 01_aliscore_array.pbs`
+
+After all Aliscore jobs complete:
+
+```bash
+# Step 2: ALICUT batch processing (save as 02_alicut_batch.sh)
+#!/bin/bash
+
+cd aligned_aa
+source ~/.bashrc
+conda activate phylo
+
+for dir in aliscore_output/aliscore_*/; do
+    bash ../scripts/run_alicut.sh "${dir}" -s
+done
+
+# Collect trimmed alignments
+mkdir -p ../trimmed_aa
+for dir in aliscore_output/aliscore_*/; do
+    trimmed=$(find "${dir}" -name "ALICUT_*.fas")
+    if [ -n "${trimmed}" ]; then
+        locus=$(basename "${dir}" | sed 's/aliscore_//')
+        cp "${trimmed}" ../trimmed_aa/${locus}_trimmed.fas
+    fi
+done
+```
+
+Run with: `bash 02_alicut_batch.sh`
+
+**Method 4: Local with GNU Parallel**
+
+For local machines with GNU parallel:
+
+```bash
+#!/bin/bash
+# run_aliscore_alicut_parallel.sh
+
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+ls *.fas > locus_list.txt
+mkdir -p aliscore_output
+mkdir -p ../trimmed_aa
+
+# Step 1: Run Aliscore in parallel (adjust -j for concurrent jobs)
+cat locus_list.txt | parallel -j 4 '
+  locus_name=$(basename {} .fas)
+  mkdir -p aliscore_output/aliscore_${locus_name}
+  cd aliscore_output/aliscore_${locus_name}
+  perl ../../scripts/Aliscore.02.2.pl -N -i ../../{}
+  cd ../..
+  echo "Aliscore complete: ${locus_name}"
+'
+
+echo "All Aliscore jobs complete. Running ALICUT..."
+
+# Step 2: Run ALICUT in parallel
+find aliscore_output -name "aliscore_*" -type d | parallel -j 4 '
+  bash ../scripts/run_alicut.sh {} -s
+'
+
+# Step 3: Collect trimmed alignments
+for dir in aliscore_output/aliscore_*/; do
+    trimmed=$(find "${dir}" -name "ALICUT_*.fas")
+    if [ -n "${trimmed}" ]; then
+        locus=$(basename "${dir}" | sed 's/aliscore_//')
+        cp "${trimmed}" ../trimmed_aa/${locus}_trimmed.fas
+    fi
+done
+
+echo "Trimming complete! Trimmed alignments in ../trimmed_aa/"
+```
+
+Run with: `bash run_aliscore_alicut_parallel.sh`
 
 **Key Parameters:**
 
