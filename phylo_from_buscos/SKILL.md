@@ -1468,6 +1468,8 @@ iqtree -s FcC_supermatrix.fas -spp partition_search.best_scheme.nex \
 
 #### Part 8C: Individual Gene Trees
 
+Estimate individual gene trees for coalescent-based species tree inference with ASTRAL.
+
 **SLURM array job:**
 ```bash
 #!/bin/bash
@@ -1476,11 +1478,18 @@ iqtree -s FcC_supermatrix.fas -spp partition_search.best_scheme.nex \
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=4G
 #SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.genetree.out
 
 source ~/.bashrc
 conda activate phylo
 
 cd trimmed_aa
+
+# Create list of alignments if not present
+if [ ! -f locus_alignments.txt ]; then
+    ls *_trimmed.fas > locus_alignments.txt
+fi
+
 locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" locus_alignments.txt)
 
 iqtree \
@@ -1489,6 +1498,72 @@ iqtree \
   -bb 1000 \
   -pre $(basename ${locus} _trimmed.fas) \
   -nt 1
+```
+
+**PBS array job:**
+```bash
+#!/bin/bash
+#PBS -N iqtree_genes
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=4gb
+#PBS -l walltime=2:00:00
+
+cd $PBS_O_WORKDIR/trimmed_aa
+source ~/.bashrc
+conda activate phylo
+
+# Create list of alignments if not present
+if [ ! -f locus_alignments.txt ]; then
+    ls *_trimmed.fas > locus_alignments.txt
+fi
+
+locus=$(sed -n "${PBS_ARRAYID}p" locus_alignments.txt)
+
+iqtree \
+  -s ${locus} \
+  -m MFP \
+  -bb 1000 \
+  -pre $(basename ${locus} _trimmed.fas) \
+  -nt 1
+```
+
+**Local with GNU parallel:**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd trimmed_aa
+
+# Create list of alignments
+ls *_trimmed.fas > locus_alignments.txt
+
+# Run IQ-TREE in parallel (adjust -j for number of concurrent jobs)
+cat locus_alignments.txt | parallel -j 4 '
+  prefix=$(basename {} _trimmed.fas)
+  iqtree -s {} -m MFP -bb 1000 -pre ${prefix} -nt 1
+  echo "Tree complete: ${prefix}"
+'
+
+echo "All gene trees complete!"
+```
+
+**Local serial (for debugging or limited resources):**
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd trimmed_aa
+
+for locus in *_trimmed.fas; do
+    prefix=$(basename ${locus} _trimmed.fas)
+    echo "Processing ${prefix}..."
+    iqtree -s ${locus} -m MFP -bb 1000 -pre ${prefix} -nt 1
+done
+
+echo "All gene trees complete!"
 ```
 
 #### Part 8D: ASTRAL Species Tree
