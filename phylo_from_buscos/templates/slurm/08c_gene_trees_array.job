@@ -22,5 +22,7 @@ iqtree \
   -s ${locus} \
   -m MFP \
   -bb 1000 \
+  -bnni \
+  -czb \
   -pre $(basename ${locus} _trimmed.fas) \
   -nt 1
