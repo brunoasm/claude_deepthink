@@ -1503,6 +1503,8 @@ print(f"\nSubmit with: {submit_cmd} {script_name}")
 
 #### Part 8B: Concatenated ML Tree
 
+**Important**: The `partition_search.best_scheme.nex` file from Part 8A already contains the best-fit models for each partition, so we don't need to specify `-m MFP` again. IQ-TREE will use the models specified in the partition file.
+
 **SLURM job for concatenated tree:**
 ```bash
 #!/bin/bash
@@ -1520,9 +1522,9 @@ iqtree \
   -nt ${SLURM_CPUS_PER_TASK} \
   -safe \
   -pre concatenated_ML_tree \
-  -m MFP \
   -bb 1000 \
-  -bnni
+  -bnni \
+  -czb
 
 # Output: concatenated_ML_tree.treefile
 ```
@@ -1540,7 +1542,7 @@ source ~/.bashrc
 conda activate phylo
 
 iqtree -s FcC_supermatrix.fas -spp partition_search.best_scheme.nex \
-  -nt 18 -safe -pre concatenated_ML_tree -m MFP -bb 1000 -bnni
+  -nt 18 -safe -pre concatenated_ML_tree -bb 1000 -bnni -czb
 ```
 
 #### Part 8C: Individual Gene Trees
@@ -1650,7 +1652,7 @@ After trimming, alignments containing fewer than [MIN_LENGTH] informative positi
 
 #### Concatenated Analysis
 
-Trimmed alignments were concatenated into a supermatrix using FASconCAT-G v1.06.1 (Kück & Longo, 2014), yielding a final alignment of [TOTAL_LENGTH] amino acid positions across [NUMBER] partitions. We performed partitioned maximum likelihood (ML) phylogenetic inference using IQ-TREE v2.3 (Minh et al., 2020). The best-fit partitioning scheme and substitution models were selected using ModelFinder (Kalyaanamoorthy et al., 2017) with the TESTMERGEONLY option and LG+G model set. Partitions were merged if they shared the same evolutionary model to reduce model complexity. Branch support was assessed using 1,000 ultrafast bootstrap replicates (Hoang et al., 2018) with the -bnni option to reduce potential overestimation of branch support.
+Trimmed alignments were concatenated into a supermatrix using FASconCAT-G v1.06.1 (Kück & Longo, 2014), yielding a final alignment of [TOTAL_LENGTH] amino acid positions across [NUMBER] partitions. We performed partitioned maximum likelihood (ML) phylogenetic inference using IQ-TREE v2.3 (Minh et al., 2020). The best-fit partitioning scheme and substitution models were selected using ModelFinder (Kalyaanamoorthy et al., 2017) with the TESTMERGEONLY option and LG+G model set. Partitions were merged if they shared the same evolutionary model to reduce model complexity. The final tree was inferred using the selected partition scheme, with branch support assessed using 1,000 ultrafast bootstrap replicates (Hoang et al., 2018). To improve accuracy, we used the -bnni option to reduce potential overestimation of bootstrap support and -czb to collapse zero-length branches.
 
 #### Coalescent-Based Species Tree
 
