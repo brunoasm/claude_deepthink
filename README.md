@@ -1,4 +1,4 @@
-# Claude Skills Collection
+# B. de Medeiros' Claude Skills Collection
 
 A curated collection of custom skills for Claude that I find useful in my work. 
 
