@@ -48,17 +48,18 @@ The complete phylogenomics pipeline:
 
 ## Requirements
 
-The skill generates scripts that use:
+Claude Code is better than the web interface, since Claude will then help you install all requirements.
+
+The skill generates scripts that install and use:
 
 - **compleasm** or BUSCO - ortholog detection
 - **MAFFT** - multiple sequence alignment
 - **Aliscore/ALICUT, trimAl, BMGE, or ClipKit** - alignment trimming
 - **FASconCAT** - alignment concatenation
-- **IQ-TREE2** - maximum likelihood phylogenetic inference
-- **ASTRAL-III** - coalescent species tree estimation
+- **IQ-TREE** - maximum likelihood phylogenetic inference
+- **ASTRAL** - coalescent species tree estimation
 - **NCBI Datasets CLI** - genome download (if using NCBI accessions)
 
-All tools can be installed via bioconda, Docker, or custom installations.
 
 ## Computing Environments
 
@@ -66,7 +67,6 @@ The skill supports multiple computing environments:
 
 - **SLURM clusters** - generates SBATCH array jobs
 - **PBS/Torque clusters** - generates PBS array jobs
-- **Cloud computing** - AWS, Google Cloud, etc.
 - **Local machines** - sequential execution scripts
 
 ## Attribution
@@ -75,7 +75,7 @@ Created by **Bruno de Medeiros** (Curator of Pollinating Insects, Field Museum) 
 
 ## Citation
 
-If you use this skill for published research, please cite:
+If you use this skill for published research, please cite this website and also:
 
 - **compleasm**: Huang, N., & Li, H. (2023). compleasm: a faster and more accurate reimplementation of BUSCO. *Bioinformatics*, 39(10), btad595.
 - **MAFFT**: Katoh, K., & Standley, D. M. (2013). MAFFT multiple sequence alignment software version 7. *Molecular Biology and Evolution*, 30(4), 772-780.
