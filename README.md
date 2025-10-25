@@ -34,10 +34,22 @@ Claude skills are custom instructions that modify how Claude behaves in specific
 
 ### General Skills
 
-#### thinking-deeply
+#### think-deeply
 Enforces deeper analysis and multi-perspective thinking instead of automatic agreement/disagreement. Activates on confirmation-seeking questions, leading statements, and binary choices to provide nuanced, well-reasoned recommendations.
 
 [View detailed documentation →](./think_deeply/README.md)
+
+#### extract-from-pdfs
+Complete pipeline for extracting structured data from scientific PDFs using Claude's vision capabilities. Supports metadata organization from BibTeX/RIS/directories, abstract filtering with local models (Ollama) or Claude Haiku/Sonnet, PDF data extraction, JSON repair, external API validation (GBIF, WFO, GeoNames, PubChem, NCBI), and export to Python/R/CSV/Excel/SQLite. Includes validation workflow with precision/recall metrics for quality assurance.
+
+**Key Features:**
+- 8-step pipeline from PDF to validated database
+- Cost options: FREE (local Ollama), cheap (Haiku ~$0.25/M tokens), or accurate (Sonnet)
+- External database validation for taxonomy, geography, chemistry
+- Validation metrics (precision, recall, F1) with stratified sampling
+- Export to multiple formats with ready-to-use loading scripts
+
+[View detailed documentation →](./extract_from_pdfs/README.md)
 
 ### Bioinformatics Skills
 
