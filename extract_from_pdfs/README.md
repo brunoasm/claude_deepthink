@@ -52,6 +52,15 @@ claude-code
 
 Then activate the skill by mentioning it in your conversation. The skill will guide you through an interactive setup process.
 
+## Documentation
+
+The skill includes comprehensive reference documentation:
+
+- `references/setup_guide.md` - Installation and configuration
+- `references/workflow_guide.md` - Complete step-by-step workflow with examples
+- `references/validation_guide.md` - Validation methodology and metrics interpretation
+- `references/api_reference.md` - External API integration details
+
 ## Manual Workflow
 
 You can also run the scripts manually:
@@ -59,7 +68,7 @@ You can also run the scripts manually:
 ### Step 1: Organize Metadata
 
 ```bash
-python templates/01_organize_metadata.py \
+python scripts/01_organize_metadata.py \
   --source-type bibtex \
   --source path/to/library.bib \
   --pdf-dir path/to/pdfs \
@@ -69,11 +78,11 @@ python templates/01_organize_metadata.py \
 
 ### Step 2: Filter Papers (Optional)
 
-First, customize the filtering prompt in `templates/02_filter_abstracts.py` for your use case.
+First, customize the filtering prompt in `scripts/02_filter_abstracts.py` for your use case.
 
 **Option A: Claude Haiku (Fast & Cheap - ~$0.25/M tokens)**
 ```bash
-python templates/02_filter_abstracts.py \
+python scripts/02_filter_abstracts.py \
   --metadata metadata.json \
   --backend anthropic-haiku \
   --use-batches \
@@ -87,7 +96,7 @@ python templates/02_filter_abstracts.py \
 # 2. Pull model: ollama pull llama3.1:8b
 # 3. Start server: ollama serve
 
-python templates/02_filter_abstracts.py \
+python scripts/02_filter_abstracts.py \
   --metadata metadata.json \
   --backend ollama \
   --ollama-model llama3.1:8b \
@@ -102,10 +111,10 @@ Recommended Ollama models:
 
 ### Step 3: Extract Data from PDFs
 
-First, create your extraction schema by copying and customizing `templates/schema_template.json`.
+First, create your extraction schema by copying and customizing `assets/schema_template.json`.
 
 ```bash
-python templates/03_extract_from_pdfs.py \
+python scripts/03_extract_from_pdfs.py \
   --metadata filtered_papers.json \
   --schema my_schema.json \
   --method batches \
@@ -115,7 +124,7 @@ python templates/03_extract_from_pdfs.py \
 ### Step 4: Repair JSON
 
 ```bash
-python templates/04_repair_json.py \
+python scripts/04_repair_json.py \
   --input extracted_data.json \
   --schema my_schema.json \
   --output cleaned_data.json
@@ -123,10 +132,10 @@ python templates/04_repair_json.py \
 
 ### Step 5: Validate with APIs
 
-First, create your API configuration by copying and customizing `templates/api_config_template.json`.
+First, create your API configuration by copying and customizing `assets/api_config_template.json`.
 
 ```bash
-python templates/05_validate_with_apis.py \
+python scripts/05_validate_with_apis.py \
   --input cleaned_data.json \
   --apis my_api_config.json \
   --output validated_data.json
@@ -136,21 +145,21 @@ python templates/05_validate_with_apis.py \
 
 ```bash
 # For Python/pandas
-python templates/06_export_database.py \
+python scripts/06_export_database.py \
   --input validated_data.json \
   --format python \
   --flatten \
   --output results
 
 # For R
-python templates/06_export_database.py \
+python scripts/06_export_database.py \
   --input validated_data.json \
   --format r \
   --flatten \
   --output results
 
 # For CSV
-python templates/06_export_database.py \
+python scripts/06_export_database.py \
   --input validated_data.json \
   --format csv \
   --flatten \
@@ -164,7 +173,7 @@ Validate extraction quality using precision and recall metrics:
 #### Step 7: Prepare Validation Set
 
 ```bash
-python templates/07_prepare_validation_set.py \
+python scripts/07_prepare_validation_set.py \
   --extraction-results cleaned_data.json \
   --schema my_schema.json \
   --sample-size 20 \
@@ -190,7 +199,7 @@ Sampling strategies:
 #### Step 9: Calculate Metrics
 
 ```bash
-python templates/08_calculate_validation_metrics.py \
+python scripts/08_calculate_validation_metrics.py \
   --annotations validation_set.json \
   --output validation_metrics.json \
   --report validation_report.txt
@@ -212,7 +221,7 @@ Use these metrics to:
 
 ### Creating Your Extraction Schema
 
-1. Copy `templates/schema_template.json` to `my_schema.json`
+1. Copy `assets/schema_template.json` to `my_schema.json`
 2. Customize the following sections:
    - `objective`: What you're extracting
    - `system_context`: Your scientific domain
@@ -220,11 +229,15 @@ Use these metrics to:
    - `output_schema`: JSON schema defining your data structure
    - `output_example`: Example of desired output
 
+See `assets/example_flower_visitors_schema.json` for a real-world example.
+
 ### Configuring API Validation
 
-1. Copy `templates/api_config_template.json` to `my_api_config.json`
+1. Copy `assets/api_config_template.json` to `my_api_config.json`
 2. Map your schema fields to appropriate validation APIs
-3. See available APIs in `templates/05_validate_with_apis.py`
+3. See available APIs in `scripts/05_validate_with_apis.py` and `references/api_reference.md`
+
+See `assets/example_api_config_ecology.json` for an ecology example.
 
 ## Cost Estimation
 
@@ -286,7 +299,7 @@ See the [beetle flower visitors repository](https://github.com/brunoasm/ARE_2026
 ## Contributing
 
 To add support for additional validation APIs:
-1. Add validator function to `templates/05_validate_with_apis.py`
+1. Add validator function to `scripts/05_validate_with_apis.py`
 2. Register in `API_VALIDATORS` dictionary
 3. Update `api_config_template.json` with examples
 

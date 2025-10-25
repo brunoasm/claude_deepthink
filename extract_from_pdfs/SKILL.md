@@ -1,330 +1,289 @@
+---
+name: extract-from-pdfs
+description: This skill should be used when extracting structured data from scientific PDFs for systematic reviews, meta-analyses, or database creation. Use when working with collections of research papers that need to be converted into analyzable datasets with validation metrics.
+---
+
 # Extract Structured Data from Scientific PDFs
 
-A comprehensive skill for extracting standardized data from scientific PDF literature and creating structured databases for research purposes.
+## Purpose
 
-## Overview
+Extract standardized, structured data from scientific PDF literature using Claude's vision capabilities. Transform PDF collections into validated databases ready for statistical analysis in Python, R, or other frameworks.
 
-This skill guides you through a complete pipeline for:
-1. Organizing PDF literature and metadata
-2. Filtering relevant papers (optional)
-3. Defining and extracting structured data
-4. Validating and enriching data with external databases
-5. Exporting to your preferred analysis framework
+**Core capabilities:**
+- Organize metadata from BibTeX, RIS, directories, or DOI lists
+- Filter papers by abstract using Claude (Haiku/Sonnet) or local models (Ollama)
+- Extract structured data from PDFs with customizable schemas
+- Repair and validate JSON outputs automatically
+- Enrich with external databases (GBIF, WFO, GeoNames, PubChem, NCBI)
+- Calculate precision/recall metrics for quality assurance
+- Export to Python, R, CSV, Excel, or SQLite
 
-Based on proven workflows but generalized for any scientific domain.
+## When to Use This Skill
 
----
+Use when:
+- Conducting systematic literature reviews requiring data extraction
+- Building databases from scientific publications
+- Converting PDF collections to structured datasets
+- Validating extraction quality with ground truth metrics
+- Comparing extraction approaches (different models, prompts)
 
-## Quick Start
+Do not use for:
+- Single PDF summarization (use basic PDF reading instead)
+- Full-text PDF search (use document search tools)
+- PDF editing or manipulation
 
-I'll help you set up a custom data extraction pipeline. First, let me understand your project:
+## Getting Started
 
-### 1. Project Setup
+### 1. Initial Setup
 
-**What is your research domain and what type of data do you want to extract?**
+Read the setup guide for installation and configuration:
 
-Examples:
-- Flower visitor observations from ecology papers
-- Chemical compound properties from chemistry literature
-- Archaeological site characteristics
-- Clinical trial outcomes
-- Gene expression data
-
-**Your answer:** {Please describe your domain and extraction goals}
-
----
-
-### 2. Data Organization
-
-**How are your PDFs currently organized?**
-
-I'll help you choose the best approach based on Anthropic's latest recommendations:
-
-#### Option A: Reference Manager Export (Recommended)
-- Export from Zotero, Mendeley, EndNote, etc.
-- Provides BibTeX/RIS with metadata + PDF links
-- Best for: Literature review workflows
-
-#### Option B: Directory with PDFs
-- Organize PDFs in folders
-- Extract metadata from filenames or DOIs
-- Best for: Smaller collections, specific paper sets
-
-#### Option C: URLs to PDFs
-- Provide list of DOIs or URLs
-- Auto-download with metadata
-- Best for: Programmatic access
-
-**Your current situation:** {Please describe}
-
----
-
-### 3. PDF Processing Options
-
-Based on Anthropic's 2025 best practices, I'll recommend one of these approaches:
-
-#### Method 1: Direct Upload (base64)
-- **Best for:** < 100 papers, < 100 pages each
-- **Pros:** Simple, no external storage needed
-- **Cons:** 32MB file size limit
-- **Token cost:** ~1,500-3,000 tokens/page
-
-#### Method 2: Files API
-- **Best for:** Repeated queries on same documents
-- **Pros:** Upload once, reuse across requests
-- **Cons:** Requires API setup
-- **Token cost:** Same as Method 1, but cacheable
-
-#### Method 3: Chunked Processing
-- **Best for:** Large PDFs (>100 pages), many documents
-- **Pros:** No size limits, can use prompt caching
-- **Cons:** More complex setup
-- **Token cost:** Reduced by 90% with caching
-
-**Based on your collection, I recommend:** {I'll suggest after you provide details}
-
----
-
-### 4. Define Extraction Schema
-
-Now, let's design what data to extract. I'll guide you through examples from your PDFs.
-
-**Please provide 2-3 example PDFs so I can:**
-1. Analyze their structure and content
-2. Identify extractable data fields
-3. Suggest appropriate data types
-4. Design optimal prompts
-5. Estimate token usage
-
-**How to provide examples:**
-- Path to local PDFs
-- URLs to open-access papers
-- DOIs I can fetch
-
----
-
-### 5. Interactive Schema Design
-
-After examining your examples, I'll ask detailed questions about:
-
-#### Data Fields
-- What information appears consistently?
-- What's optional vs. required?
-- What are the data types? (text, numbers, dates, lists, nested objects)
-- What level of detail is needed?
-
-#### Reasoning Requirements
-- Does extraction require domain expertise?
-- Are there ambiguous cases needing interpretation?
-- Should I validate/standardize names (e.g., species, locations)?
-- Any calculations or derived fields?
-
-#### Quality Controls
-- How to handle missing data?
-- What makes a "complete" record?
-- Any bias indicators to flag?
-
----
-
-### 6. Model Selection & Token Estimation
-
-Based on your schema, I'll recommend:
-
-**Model Options:**
-- **Claude 3.5 Sonnet**: Best balance of speed/accuracy/cost (recommended for most uses)
-- **Claude 3 Opus**: Maximum accuracy for complex reasoning
-- **Claude 3 Haiku**: Fast/cheap for simple extraction
-
-**Processing Strategy:**
-- Sequential vs. batch processing
-- Use of prompt caching
-- Filtering step (analyze abstracts first to reduce costs)
-
-**Cost Estimation:**
-I'll calculate:
-- Average tokens per paper
-- Total estimated cost for your collection
-- Cost savings from filtering/caching
-
----
-
-### 7. Validation & Enrichment
-
-**Should I suggest external databases for validation?**
-
-Based on your data type, I'll search for relevant APIs:
-
-Examples:
-- **Geography:** GeoNames, OpenStreetMap, Google Maps
-- **Biological taxonomy:** GBIF, WoRMS, NCBI Taxonomy, World Flora Online
-- **Chemistry:** PubChem, ChEMBL
-- **Genes:** NCBI Gene, Ensembl
-- **Clinical:** ClinicalTrials.gov
-- **Publications:** CrossRef, PubMed
-
-**Your validation needs:** {Please specify or say "suggest based on my data"}
-
----
-
-### 8. Output Format
-
-**What's your preferred analysis environment?**
-
-I'll create export scripts for:
-- [ ] Python (pandas DataFrame, SQLite, PostgreSQL)
-- [ ] R (data.frame, RDS, database connections)
-- [ ] CSV (universal compatibility)
-- [ ] JSON (for web apps, APIs)
-- [ ] Excel (for manual review)
-- [ ] Other: {specify}
-
----
-
-## Workflow Steps
-
-Once we complete the setup, I'll generate a customized pipeline:
-
-### Step 1: Organize Metadata
 ```bash
-python templates/01_organize_metadata.py \
-  --source {your_metadata_file} \
-  --pdf-dir {pdf_directory} \
-  --output metadata.json
+cat references/setup_guide.md
 ```
 
-### Step 2: Filter Papers (Optional)
+Key setup steps:
+- Install dependencies: `conda env create -f environment.yml`
+- Set API keys: `export ANTHROPIC_API_KEY='your-key'`
+- Optional: Install Ollama for free local filtering
 
-**Choose your filtering backend:**
+### 2. Define Extraction Requirements
 
-**Option A: Claude Haiku (Recommended - Fast & Cheap)**
+**Ask the user:**
+- Research domain and extraction goals
+- How PDFs are organized (reference manager, directory, DOI list)
+- Approximate collection size
+- Preferred analysis environment (Python, R, etc.)
+
+**Provide 2-3 example PDFs** to analyze structure and design schema.
+
+### 3. Design Extraction Schema
+
+Create custom schema from template:
+
 ```bash
-python templates/02_filter_abstracts.py \
+cp assets/schema_template.json my_schema.json
+```
+
+Customize for the specific domain:
+- Set `objective` describing what to extract
+- Define `output_schema` with field types and descriptions
+- Add domain-specific `instructions` for Claude
+- Provide `output_example` showing desired format
+
+See `assets/example_flower_visitors_schema.json` for real-world ecology example.
+
+## Workflow Execution
+
+### Complete Pipeline
+
+Run the 6-step pipeline (plus optional validation):
+
+```bash
+# Step 1: Organize metadata
+python scripts/01_organize_metadata.py \
+  --source-type bibtex \
+  --source library.bib \
+  --pdf-dir pdfs/ \
+  --output metadata.json
+
+# Step 2: Filter papers (optional - recommended)
+# Choose backend: anthropic-haiku (cheap), anthropic-sonnet (accurate), ollama (free)
+python scripts/02_filter_abstracts.py \
   --metadata metadata.json \
   --backend anthropic-haiku \
   --use-batches \
   --output filtered_papers.json
-```
-*Cost: ~$0.25 per million input tokens*
 
-**Option B: Local Model via Ollama (FREE & Private)**
-```bash
-# Setup (one-time):
-# 1. Install Ollama: https://ollama.com
-# 2. Pull model: ollama pull llama3.1:8b
-# 3. Start server: ollama serve
-
-python templates/02_filter_abstracts.py \
-  --metadata metadata.json \
-  --backend ollama \
-  --ollama-model llama3.1:8b \
-  --output filtered_papers.json
-```
-*No cost, runs locally. Recommended models: llama3.1:8b, mistral:7b*
-
-### Step 3: Extract Data
-```bash
-python templates/03_extract_from_pdfs.py \
+# Step 3: Extract from PDFs
+python scripts/03_extract_from_pdfs.py \
   --metadata filtered_papers.json \
-  --schema schema.json \
-  --use-caching \
-  --output raw_extractions.json
-```
+  --schema my_schema.json \
+  --method batches \
+  --output extracted_data.json
 
-### Step 4: Repair & Validate JSON
-```bash
-python templates/04_repair_json.py \
-  --input raw_extractions.json \
-  --output cleaned_extractions.json
-```
+# Step 4: Repair JSON
+python scripts/04_repair_json.py \
+  --input extracted_data.json \
+  --schema my_schema.json \
+  --output cleaned_data.json
 
-### Step 5: Validate with External APIs
-```bash
-python templates/05_validate_with_apis.py \
-  --input cleaned_extractions.json \
-  --apis {api_config.json} \
+# Step 5: Validate with APIs
+python scripts/05_validate_with_apis.py \
+  --input cleaned_data.json \
+  --apis my_api_config.json \
   --output validated_data.json
-```
 
-### Step 6: Export to Analysis Format
-```bash
-python templates/06_export_database.py \
+# Step 6: Export to analysis format
+python scripts/06_export_database.py \
   --input validated_data.json \
-  --format {python|r|csv|json|excel} \
-  --output final_database
+  --format python \
+  --output results
 ```
 
----
+### Validation (Optional but Recommended)
 
-## Validation & Quality Assurance (Optional but Recommended)
+Calculate extraction quality metrics:
 
-After running your extraction pipeline, validate its quality:
-
-### Step 7: Prepare Validation Set
 ```bash
-python templates/07_prepare_validation_set.py \
-  --extraction-results cleaned_extractions.json \
-  --schema schema.json \
+# Step 7: Sample papers for annotation
+python scripts/07_prepare_validation_set.py \
+  --extraction-results cleaned_data.json \
+  --schema my_schema.json \
   --sample-size 20 \
   --strategy stratified \
   --output validation_set.json
-```
 
-This creates a sample of papers for manual annotation. Sampling strategies:
-- **random**: Random sample (good for overall quality)
-- **stratified**: Sample by extraction characteristics (identifies weaknesses)
-- **diverse**: Maximize diversity (comprehensive evaluation)
+# Step 8: Manually annotate (edit validation_set.json)
+# Fill ground_truth field for each sampled paper
 
-### Step 8: Manually Annotate
-1. Open `validation_set.json` in a text editor
-2. For each sampled paper, read the PDF
-3. Fill in the `ground_truth` field with correct extraction
-4. Add your name in `annotator` and date in `annotation_date`
-5. Use `notes` for any ambiguous cases
-
-### Step 9: Calculate Validation Metrics
-```bash
-python templates/08_calculate_validation_metrics.py \
+# Step 9: Calculate metrics
+python scripts/08_calculate_validation_metrics.py \
   --annotations validation_set.json \
   --output validation_metrics.json \
   --report validation_report.txt
 ```
 
-This calculates:
-- **Precision**: Of extracted items, how many are correct?
-- **Recall**: Of true items, how many were extracted?
-- **F1 Score**: Harmonic mean of precision and recall
-- **Per-field metrics**: Which fields are most/least accurate?
+Validation produces precision, recall, and F1 metrics per field and overall.
 
-**Use these metrics to:**
-- Identify weak points in your extraction prompts
-- Iterate and improve your schema
-- Compare different models (e.g., Haiku vs Sonnet vs Ollama)
+## Detailed Documentation
+
+Access comprehensive guides in the `references/` directory:
+
+**Setup and installation:**
+```bash
+cat references/setup_guide.md
+```
+
+**Complete workflow with examples:**
+```bash
+cat references/workflow_guide.md
+```
+
+**Validation methodology:**
+```bash
+cat references/validation_guide.md
+```
+
+**API integration details:**
+```bash
+cat references/api_reference.md
+```
+
+## Customization
+
+### Schema Customization
+
+Modify `my_schema.json` to match the research domain:
+
+1. **Objective:** Describe what data to extract
+2. **Instructions:** Step-by-step extraction guidance
+3. **Output schema:** JSON schema defining structure
+4. **Important notes:** Domain-specific rules
+5. **Examples:** Show desired output format
+
+Use imperative language in instructions. Be specific about data types, required vs optional fields, and edge cases.
+
+### API Configuration
+
+Configure external database validation in `my_api_config.json`:
+
+Map extracted fields to validation APIs:
+- `gbif_taxonomy` - Biological taxonomy
+- `wfo_plants` - Plant names specifically
+- `geonames` - Geographic locations
+- `geocode` - Address to coordinates
+- `pubchem` - Chemical compounds
+- `ncbi_gene` - Gene identifiers
+
+See `assets/example_api_config_ecology.json` for ecology-specific example.
+
+### Filtering Customization
+
+Edit filtering criteria in `scripts/02_filter_abstracts.py` (line 74):
+
+Replace TODO section with domain-specific criteria:
+- What constitutes primary data vs review?
+- What data types are relevant?
+- What scope (geographic, temporal, taxonomic) is needed?
+
+Use conservative criteria (when in doubt, include paper) to avoid false negatives.
+
+## Cost Optimization
+
+**Backend selection for filtering (Step 2):**
+- Ollama (local): $0 - Best for privacy and high volume
+- Haiku (API): ~$0.25/M tokens - Best balance of cost/quality
+- Sonnet (API): ~$3/M tokens - Best for complex filtering
+
+**Typical costs for 100 papers:**
+- With filtering (Haiku + Sonnet): ~$4
+- With local Ollama + Sonnet: ~$3.75
+- Without filtering (Sonnet only): ~$7.50
+
+**Optimization strategies:**
+- Use abstract filtering to reduce PDF processing
+- Use local Ollama for filtering (free)
+- Enable prompt caching with `--use-caching`
+- Process in batches with `--use-batches`
+
+## Quality Assurance
+
+**Validation workflow provides:**
+- Precision: % of extracted items that are correct
+- Recall: % of true items that were extracted
+- F1 score: Harmonic mean of precision and recall
+- Per-field metrics: Identify weak fields
+
+**Use metrics to:**
+- Establish baseline extraction quality
+- Compare different approaches (models, prompts, schemas)
+- Identify areas for improvement
 - Report extraction quality in publications
 
-**Recommended validation set size:**
+**Recommended sample sizes:**
 - Small projects (<100 papers): 10-20 papers
 - Medium projects (100-500 papers): 20-50 papers
 - Large projects (>500 papers): 50-100 papers
 
----
+## Iterative Improvement
 
-## What I Need From You Now
+1. Run initial extraction with baseline schema
+2. Validate on sample using Steps 7-9
+3. Analyze field-level metrics and error patterns
+4. Revise schema, prompts, or model selection
+5. Re-extract and re-validate
+6. Compare metrics to verify improvement
+7. Repeat until acceptable quality achieved
 
-To get started, please provide:
+See `references/validation_guide.md` for detailed guidance on interpreting metrics and improving extraction quality.
 
-1. **Research domain and extraction goals** (1-2 sentences)
-2. **How your PDFs are organized** (reference manager? directory? list?)
-3. **Approximate collection size** (number of papers, average pages)
-4. **2-3 example PDFs** (paths, URLs, or DOIs)
-5. **Preferred analysis environment** (Python, R, other)
+## Available Scripts
 
-Once you provide this information, I'll:
-- Search for the latest best practices specific to your domain
-- Analyze your example PDFs
-- Design a custom extraction schema through interactive Q&A
-- Suggest appropriate validation databases
-- Generate all necessary scripts with your specific parameters
-- Estimate costs and processing time
-- Create documentation for your specific workflow
+**Data organization:**
+- `scripts/01_organize_metadata.py` - Standardize PDFs and metadata
 
-**Ready to begin? Please provide the information above!**
+**Filtering:**
+- `scripts/02_filter_abstracts.py` - Filter by abstract (Haiku/Sonnet/Ollama)
+
+**Extraction:**
+- `scripts/03_extract_from_pdfs.py` - Extract from PDFs with Claude vision
+
+**Processing:**
+- `scripts/04_repair_json.py` - Repair and validate JSON
+- `scripts/05_validate_with_apis.py` - Enrich with external databases
+- `scripts/06_export_database.py` - Export to analysis formats
+
+**Validation:**
+- `scripts/07_prepare_validation_set.py` - Sample papers for annotation
+- `scripts/08_calculate_validation_metrics.py` - Calculate P/R/F1 metrics
+
+## Assets
+
+**Templates:**
+- `assets/schema_template.json` - Blank extraction schema template
+- `assets/api_config_template.json` - API validation configuration template
+
+**Examples:**
+- `assets/example_flower_visitors_schema.json` - Ecology extraction example
+- `assets/example_api_config_ecology.json` - Ecology API validation example
