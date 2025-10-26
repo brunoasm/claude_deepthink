@@ -1176,4 +1176,867 @@ docker run -v $(pwd):/data -it phylogenomics:latest
 
 ---
 
+## Substitution Model Recommendation Detailed Guide
+
+This section provides the detailed decision matrix and recommendation process for IQ-TREE substitution model selection.
+
+### Model Recommendation Matrix
+
+#### For Nuclear Proteins (most phylogenomics workflows)
+
+**Deep Phylogeny (class+ level), Many Taxa (>50)**:
+1. **LG+F+G4** or **LG+F+R** - Best general model, widely used
+2. **WAG+F+G4** - Alternative general model
+3. **LG4X** or **LG4M** - Mixture models for heterogeneity
+4. **Q.pfam+F+G4** - Database-derived, broad taxonomic sampling
+5. **JTT+F+G4** - Classical alternative
+
+**Moderate Phylogeny (family/order level), Moderate Taxa (20-50)**:
+1. **LG+F+G4** - Top choice for most analyses
+2. **WAG+F+G4** - Reliable alternative
+3. **JTT+F+G4** - Classical model
+4. **Q.pfam+F+G4** - Database-derived option
+
+**Shallow Phylogeny (species/genus level), Few Taxa (<20)**:
+1. **LG+F+G4** - Still recommended default
+2. **WAG+F+G4** - Good alternative
+3. **JTT+F+G4** - Classical option
+
+#### Taxonomically-Targeted Models
+
+When applicable, use these taxonomically-specific models:
+
+- **Birds**: Q.bird+F+G4
+- **Mammals**: Q.mammal+F+G4, mtMAM (if mtDNA)
+- **Insects**: Q.insect+F+G4, mtART (if mtDNA)
+- **Plants**: Q.plant+F+G4, cpREV (if chloroplast)
+- **Yeasts/Fungi**: Q.yeast+F+G4
+
+#### Model Notation Explained
+
+- **LG, WAG, JTT**: Empirical exchange rate matrix name
+- **+F**: Use empirical amino acid frequencies from data (recommended)
+- **+G4**: Gamma model with 4 rate categories for among-site rate variation
+- **+R**: FreeRate model (alternative to Gamma, often better but slower)
+
+### Presenting Model Recommendations
+
+Format recommendations like this:
+
+```markdown
+### Recommended Substitution Models for Your Dataset
+
+Based on your dataset ([NUMBER] taxa, [TAXONOMIC_SCOPE] phylogenetic breadth, [SEQUENCE_TYPE]):
+
+**Primary Recommendations** (use all in model testing):
+
+1. **LG+F+G4**
+   - **Why**: Most widely used modern AA model, performs well across diverse datasets
+   - **Citations**: Proven effective in numerous phylogenomic studies
+
+2. **WAG+F+G4**
+   - **Why**: Excellent general-purpose alternative, often comparable to LG
+   - **Use case**: Good backup if LG shows poor fit
+
+3. **JTT+F+G4**
+   - **Why**: Classical model still widely used, allows comparison with older studies
+   - **Use case**: Historical comparisons
+
+[Add 2-3 more specific to their data...]
+
+**For IQ-TREE Step 8A**, we'll use these models in the partition search:
+```bash
+-mset LG,WAG,JTT,Q.pfam  # Model set for testing
+-m TESTMERGEONLY          # Test models and merge partitions
+```
+
+**For Step 8C (gene trees)**, we'll use:
+```bash
+-m MFP  # Model Finder Plus (tests models from our set)
+```
+
+Would you like to:
+1. ✓ Use these recommended models (recommended)
+2. Specify a custom model set
+3. Let me fetch more information about your specific taxonomic group
+```
+
+---
+
+## Ortholog Identification Implementation
+
+This section provides detailed implementation scripts for Step 2 (compleasm).
+
+### Threading Allocation Table
+
+| Total Cores | First Genome | Subsequent Genomes | Concurrent Jobs | Threads/Job |
+|-------------|--------------|-------------------|-----------------|-------------|
+| 8           | 8 threads    | 8 threads (serial)| 1               | 8           |
+| 16          | 16 threads   | 8 threads         | 2               | 8           |
+| 32          | 32 threads   | 8 threads         | 4               | 8           |
+| 64          | 64 threads   | 16 threads        | 4               | 16          |
+| 128         | 128 threads  | 16-32 threads     | 4-8             | 16          |
+
+### SLURM Implementation (Option A: Optimized Parallel)
+
+**First genome job** (`run_compleasm_first.job`):
+```bash
+#!/bin/bash
+#SBATCH --job-name=compleasm_first
+#SBATCH --cpus-per-task=TOTAL_THREADS  # Replace with all available cores
+#SBATCH --mem-per-cpu=6G
+#SBATCH --time=24:00:00
+#SBATCH --output=logs/compleasm_first.%j.out
+#SBATCH --error=logs/compleasm_first.%j.err
+
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p logs
+
+# Process first genome only (downloads lineage database)
+first_genome=$(head -n 1 genome_list.txt)
+genome_name=$(basename ${first_genome} .fasta)
+
+echo "Processing first genome: ${genome_name}"
+echo "This will download the BUSCO lineage database..."
+
+compleasm run \
+  -a ${first_genome} \
+  -o ${genome_name}_compleasm \
+  -l LINEAGE \
+  -t ${SLURM_CPUS_PER_TASK}
+
+echo "First genome complete. Database downloaded."
+echo "Ready to process remaining genomes in parallel."
+```
+
+**Parallel genomes job** (`run_compleasm_parallel.job`):
+```bash
+#!/bin/bash
+#SBATCH --job-name=compleasm_parallel
+#SBATCH --array=2-NUM_GENOMES  # Replace NUM_GENOMES with count
+#SBATCH --cpus-per-task=THREADS_PER_JOB  # Replace based on table above
+#SBATCH --mem-per-cpu=6G
+#SBATCH --time=48:00:00
+#SBATCH --output=logs/compleasm.%A_%a.out
+#SBATCH --error=logs/compleasm.%A_%a.err
+
+source ~/.bashrc
+conda activate phylo
+
+# Get genome for this array task
+genome=$(sed -n "${SLURM_ARRAY_TASK_ID}p" genome_list.txt)
+genome_name=$(basename ${genome} .fasta)
+
+echo "Processing genome ${SLURM_ARRAY_TASK_ID}: ${genome_name}"
+
+compleasm run \
+  -a ${genome} \
+  -o ${genome_name}_compleasm \
+  -l LINEAGE \
+  -t ${SLURM_CPUS_PER_TASK}
+
+echo "Completed: ${genome_name}"
+```
+
+### PBS Implementation (Option A: Optimized Parallel)
+
+Similar structure to SLURM, but with PBS directives. See templates in `templates/pbs/`.
+
+### Local Implementation (Option A: Optimized Parallel)
+
+**First genome script** (`run_compleasm_first.sh`):
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+TOTAL_THREADS=TOTAL_THREADS  # Replace with total cores to use
+
+mkdir -p logs
+
+# Process first genome only
+first_genome=$(head -n 1 genome_list.txt)
+genome_name=$(basename ${first_genome} .fasta)
+
+echo "Processing first genome: ${genome_name}"
+echo "Using ${TOTAL_THREADS} threads"
+echo "This will download the BUSCO lineage database..."
+
+compleasm run \
+  -a ${first_genome} \
+  -o ${genome_name}_compleasm \
+  -l LINEAGE \
+  -t ${TOTAL_THREADS} 2>&1 | tee logs/compleasm_first.log
+
+echo "First genome complete!"
+```
+
+**Parallel genomes script** (`run_compleasm_parallel.sh`):
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+TOTAL_THREADS=TOTAL_THREADS      # Replace with total cores available
+THREADS_PER_JOB=THREADS_PER_JOB  # Replace based on table above
+CONCURRENT_JOBS=$((TOTAL_THREADS / THREADS_PER_JOB))
+
+echo "Parallel compleasm processing"
+echo "Total threads: ${TOTAL_THREADS}"
+echo "Threads per genome: ${THREADS_PER_JOB}"
+echo "Concurrent genomes: ${CONCURRENT_JOBS}"
+echo ""
+
+mkdir -p logs
+
+# Process genomes 2-end in parallel using GNU parallel
+tail -n +2 genome_list.txt | parallel -j ${CONCURRENT_JOBS} '
+  genome_name=$(basename {} .fasta)
+  echo "Processing: ${genome_name}"
+
+  compleasm run \
+    -a {} \
+    -o ${genome_name}_compleasm \
+    -l LINEAGE \
+    -t THREADS_PER_JOB 2>&1 | tee logs/compleasm_${genome_name}.log
+
+  echo "Completed: ${genome_name}"
+'
+
+echo ""
+echo "All genomes processed!"
+```
+
+### Simple Serial Implementation (All Platforms)
+
+For users who prefer simplicity over optimization:
+
+**SLURM** (`run_compleasm_serial.job`):
+```bash
+#!/bin/bash
+#SBATCH --job-name=compleasm_serial
+#SBATCH --cpus-per-task=THREADS
+#SBATCH --mem-per-cpu=6G
+#SBATCH --time=72:00:00
+#SBATCH --output=logs/compleasm.%j.out
+
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p logs
+
+while read genome; do
+  genome_name=$(basename ${genome} .fasta)
+  echo "Processing ${genome_name}..."
+
+  compleasm run \
+    -a ${genome} \
+    -o ${genome_name}_compleasm \
+    -l LINEAGE \
+    -t ${SLURM_CPUS_PER_TASK}
+done < genome_list.txt
+
+echo "All genomes processed!"
+```
+
+---
+
+## Alignment Implementation
+
+This section provides detailed implementation scripts for Step 5 (MAFFT alignment).
+
+### SLURM Array Job
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=mafft_array
+#SBATCH --array=1-NUM_LOCI  # Replace with actual number
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=4G
+#SBATCH --time=24:00:00
+#SBATCH --output=logs/%A_%a.mafft.out
+#SBATCH --error=logs/%A_%a.mafft.err
+
+source ~/.bashrc
+conda activate phylo
+
+cd single_copy_orthologs/unaligned_aa
+mkdir -p ../aligned_aa
+
+locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" locus_names.txt)
+output=$(basename ${locus} .fas)_aligned.fas
+
+echo "Aligning: ${locus}"
+
+mafft-linsi ${locus} > ../aligned_aa/${output}
+
+echo "Completed: ${output}"
+```
+
+### PBS Array Job
+
+```bash
+#!/bin/bash
+#PBS -N mafft_array
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=4gb
+#PBS -l walltime=24:00:00
+
+cd $PBS_O_WORKDIR/single_copy_orthologs/unaligned_aa
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p ../aligned_aa
+
+locus=$(sed -n "${PBS_ARRAYID}p" locus_names.txt)
+output=$(basename ${locus} .fas)_aligned.fas
+
+mafft-linsi ${locus} > ../aligned_aa/${output}
+```
+
+### Local Sequential
+
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd single_copy_orthologs/unaligned_aa
+mkdir -p ../aligned_aa
+
+while read locus; do
+  output=$(basename ${locus} .fas)_aligned.fas
+  echo "Aligning ${locus}..."
+
+  mafft-linsi ${locus} > ../aligned_aa/${output}
+done < locus_names.txt
+
+echo "All alignments complete!"
+```
+
+### Local Parallel (GNU parallel)
+
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd single_copy_orthologs/unaligned_aa
+mkdir -p ../aligned_aa
+
+CONCURRENT_JOBS=4  # Adjust based on available cores
+
+cat locus_names.txt | parallel -j ${CONCURRENT_JOBS} '
+  output=$(basename {} .fas)_aligned.fas
+  echo "Aligning: {}"
+  mafft-linsi {} > ../aligned_aa/${output}
+  echo "Completed: ${output}"
+'
+
+echo "All alignments complete!"
+```
+
+---
+
+## Alignment Trimming Implementation
+
+This section provides detailed implementation scripts for Step 6 (alignment trimming) using all supported methods.
+
+### trimAl Implementation
+
+**SLURM Array Job**:
+```bash
+#!/bin/bash
+#SBATCH --job-name=trimal_array
+#SBATCH --array=1-NUM_LOCI
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=2G
+#SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.trimal.out
+
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+ls *.fas > aligned_loci.txt
+
+locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+trimal -in ${locus} -out ../trimmed_aa/${output} -automated1
+```
+
+**PBS Array Job**:
+```bash
+#!/bin/bash
+#PBS -N trimal_array
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=2gb
+#PBS -l walltime=2:00:00
+
+cd $PBS_O_WORKDIR/aligned_aa
+source ~/.bashrc
+conda activate phylo
+
+mkdir -p ../trimmed_aa
+ls *.fas > aligned_loci.txt
+
+locus=$(sed -n "${PBS_ARRAYID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+trimal -in ${locus} -out ../trimmed_aa/${output} -automated1
+```
+
+**Local with GNU parallel**:
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+cat aligned_loci.txt | parallel -j 4 '
+  output=$(basename {} _aligned.fas)_trimmed.fas
+  trimal -in {} -out ../trimmed_aa/${output} -automated1
+  echo "Trimmed: ${output}"
+'
+```
+
+### ClipKit Implementation
+
+**SLURM Array Job**:
+```bash
+#!/bin/bash
+#SBATCH --job-name=clipkit_array
+#SBATCH --array=1-NUM_LOCI
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=2G
+#SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.clipkit.out
+
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+clipkit ${locus} -o ../trimmed_aa/${output}
+```
+
+**Local with GNU parallel**:
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+cat aligned_loci.txt | parallel -j 4 '
+  output=$(basename {} _aligned.fas)_trimmed.fas
+  clipkit {} -o ../trimmed_aa/${output}
+'
+```
+
+### BMGE Implementation
+
+**SLURM Array Job**:
+```bash
+#!/bin/bash
+#SBATCH --job-name=bmge_array
+#SBATCH --array=1-NUM_LOCI
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=2G
+#SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.bmge.out
+
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" aligned_loci.txt)
+output=$(basename ${locus} _aligned.fas)_trimmed.fas
+
+bmge -i ${locus} -t AA -o ../trimmed_aa/${output}
+```
+
+**Local with GNU parallel**:
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd aligned_aa
+mkdir -p ../trimmed_aa
+
+cat aligned_loci.txt | parallel -j 4 '
+  output=$(basename {} _aligned.fas)_trimmed.fas
+  bmge -i {} -t AA -o ../trimmed_aa/${output}
+'
+```
+
+---
+
+## Partition Model Selection Implementation
+
+This section provides detailed implementation scripts for Step 8A (IQ-TREE partition model selection).
+
+### SLURM Implementation
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=partition_search
+#SBATCH --cpus-per-task=18
+#SBATCH --mem-per-cpu=4G
+#SBATCH --time=72:00:00
+#SBATCH --output=logs/partition_search.%j.out
+#SBATCH --error=logs/partition_search.%j.err
+
+source ~/.bashrc
+conda activate phylo
+
+cd trimmed_aa
+
+echo "Starting partition model selection..."
+echo "Using model set: MODEL_SET"
+echo "Threads: ${SLURM_CPUS_PER_TASK}"
+
+iqtree \
+  -s FcC_supermatrix.fas \
+  -spp partition_def.txt \
+  -m TESTMERGEONLY \
+  -mset MODEL_SET \
+  -msub nuclear \
+  -rcluster 10 \
+  -bb 1000 \
+  -alrt 1000 \
+  -nt ${SLURM_CPUS_PER_TASK} \
+  -safe \
+  -pre partition_search
+
+echo "Partition search complete!"
+echo "Best scheme: partition_search.best_scheme.nex"
+```
+
+### PBS Implementation
+
+```bash
+#!/bin/bash
+#PBS -N partition_search
+#PBS -l nodes=1:ppn=18
+#PBS -l mem=72gb
+#PBS -l walltime=72:00:00
+
+cd $PBS_O_WORKDIR/trimmed_aa
+source ~/.bashrc
+conda activate phylo
+
+iqtree \
+  -s FcC_supermatrix.fas \
+  -spp partition_def.txt \
+  -m TESTMERGEONLY \
+  -mset MODEL_SET \
+  -msub nuclear \
+  -rcluster 10 \
+  -bb 1000 \
+  -alrt 1000 \
+  -nt 18 \
+  -safe \
+  -pre partition_search
+```
+
+### Local Implementation
+
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd trimmed_aa
+
+THREADS=18  # Adjust based on available cores
+
+echo "Starting partition model selection..."
+echo "Using ${THREADS} threads"
+
+iqtree \
+  -s FcC_supermatrix.fas \
+  -spp partition_def.txt \
+  -m TESTMERGEONLY \
+  -mset MODEL_SET \
+  -msub nuclear \
+  -rcluster 10 \
+  -bb 1000 \
+  -alrt 1000 \
+  -nt ${THREADS} \
+  -safe \
+  -pre partition_search
+
+echo "Partition search complete!"
+```
+
+### Parameter Explanations
+
+- `-m TESTMERGEONLY`: Test models and merge partitions with same best model
+- `-mset MODEL_SET`: Test only specified models (e.g., "LG,WAG,JTT,Q.pfam")
+- `-msub nuclear`: Rate heterogeneity appropriate for nuclear genes
+- `-rcluster 10`: Merge similar partitions (10% relaxed clustering)
+- `-bb 1000`: 1000 ultrafast bootstrap replicates
+- `-alrt 1000`: 1000 SH-aLRT replicates (additional branch support)
+- `-safe`: Safe numerical mode (slower but more stable)
+
+---
+
+## Gene Trees Implementation
+
+This section provides detailed implementation scripts for Step 8C (individual gene tree estimation).
+
+### SLURM Array Job
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=gene_trees
+#SBATCH --array=1-NUM_LOCI  # Replace with loci count
+#SBATCH --cpus-per-task=1
+#SBATCH --mem-per-cpu=4G
+#SBATCH --time=2:00:00
+#SBATCH --output=logs/%A_%a.gene_tree.out
+#SBATCH --error=logs/%A_%a.gene_tree.err
+
+source ~/.bashrc
+conda activate phylo
+
+cd trimmed_aa
+ls *_trimmed.fas > locus_list.txt
+
+locus=$(sed -n "${SLURM_ARRAY_TASK_ID}p" locus_list.txt)
+prefix=$(basename ${locus} .fas)
+
+echo "Estimating gene tree: ${locus}"
+
+iqtree \
+  -s ${locus} \
+  -m MFP \
+  -bb 1000 \
+  -bnni \
+  -czb \
+  -nt 1 \
+  -pre ${prefix}
+
+echo "Completed: ${prefix}.treefile"
+```
+
+### PBS Array Job
+
+```bash
+#!/bin/bash
+#PBS -N gene_trees
+#PBS -t 1-NUM_LOCI
+#PBS -l nodes=1:ppn=1
+#PBS -l mem=4gb
+#PBS -l walltime=2:00:00
+
+cd $PBS_O_WORKDIR/trimmed_aa
+source ~/.bashrc
+conda activate phylo
+
+ls *_trimmed.fas > locus_list.txt
+
+locus=$(sed -n "${PBS_ARRAYID}p" locus_list.txt)
+prefix=$(basename ${locus} .fas)
+
+iqtree \
+  -s ${locus} \
+  -m MFP \
+  -bb 1000 \
+  -bnni \
+  -czb \
+  -nt 1 \
+  -pre ${prefix}
+```
+
+### Local Parallel (GNU parallel)
+
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd trimmed_aa
+ls *_trimmed.fas > locus_list.txt
+
+CONCURRENT_JOBS=4  # Adjust based on available cores
+
+echo "Estimating gene trees in parallel..."
+echo "Concurrent jobs: ${CONCURRENT_JOBS}"
+
+cat locus_list.txt | parallel -j ${CONCURRENT_JOBS} '
+  prefix=$(basename {} .fas)
+  echo "Processing: {}"
+
+  iqtree \
+    -s {} \
+    -m MFP \
+    -bb 1000 \
+    -bnni \
+    -czb \
+    -nt 1 \
+    -pre ${prefix} > ${prefix}.log 2>&1
+
+  echo "Completed: ${prefix}.treefile"
+'
+
+echo "All gene trees estimated!"
+```
+
+### Local Serial
+
+```bash
+#!/bin/bash
+source ~/.bashrc
+conda activate phylo
+
+cd trimmed_aa
+
+echo "Estimating gene trees (serial processing)..."
+
+for locus in *_trimmed.fas; do
+  prefix=$(basename ${locus} .fas)
+  echo "Processing: ${locus}"
+
+  iqtree \
+    -s ${locus} \
+    -m MFP \
+    -bb 1000 \
+    -bnni \
+    -czb \
+    -nt 1 \
+    -pre ${prefix}
+
+  echo "Completed: ${prefix}.treefile"
+done
+
+echo "All gene trees estimated!"
+```
+
+### Parameter Explanations
+
+- `-m MFP`: Model Finder Plus (automatically select best model)
+- `-bb 1000`: 1000 ultrafast bootstrap replicates
+- `-bnni`: Reduce NNI iterations to avoid overestimating bootstrap support
+- `-czb`: Collapse zero-length branches in final tree
+- `-nt 1`: Single thread per gene (parallelize across genes, not within)
+
+---
+
+## Methods Paragraph Template
+
+This section provides the complete methods paragraph template for publications.
+
+Use this template to generate a `METHODS_PARAGRAPH.md` file for users. Customize based on their workflow choices.
+
+```markdown
+# Methods Paragraph for Publication
+
+## Phylogenomic Analysis
+
+[Copy and customize the text below for your manuscript]
+
+---
+
+### Ortholog Identification and Quality Control
+
+We identified single-copy orthologs from [NUMBER] genome assemblies using compleasm v[VERSION] (Huang & Li, 2023) with the [LINEAGE_NAME] BUSCO lineage dataset (v[VERSION]). Genomes with completeness scores below [THRESHOLD]% were excluded from downstream analyses. From the retained high-quality genomes, we extracted [NUMBER] single-copy orthologs present in all species.
+
+### Multiple Sequence Alignment and Trimming
+
+Each orthologous gene set was aligned using MAFFT v7 (Katoh & Standley, 2013) with the L-INS-i algorithm for accurate alignment of conserved protein sequences. Aligned sequences were then trimmed to remove ambiguously aligned regions using [TRIMMING_METHOD]:
+
+- **Aliscore/ALICUT**: We used Aliscore v2.2 and ALICUT v2.31 (Kück et al., 2010) to identify and remove randomly similar sequence (RSS) sections. Aliscore identified RSS positions using Monte Carlo resampling with default parameters (window size = 4, treating gaps as ambiguous characters with -N option), and ALICUT removed these positions from the alignments.
+
+- **trimAl**: We employed trimAl v1.4 (Capella-Gutiérrez et al., 2009) with the -automated1 heuristic method to automatically optimize gap threshold selection.
+
+- **BMGE**: We used BMGE v1.12 (Criscuolo & Gribaldo, 2010) with entropy-based trimming for amino acid sequences (option -t AA).
+
+- **ClipKit**: We applied ClipKit v1.3 (Steenwyk et al., 2020) with the default smart-gap mode for phylogenetically informative position selection.
+
+After trimming, alignments containing fewer than [MIN_LENGTH] informative positions were excluded, resulting in [FINAL_NUMBER] high-quality gene alignments.
+
+### Phylogenetic Inference
+
+#### Concatenated Analysis
+
+Trimmed alignments were concatenated into a supermatrix using FASconCAT-G v1.06.1 (Kück & Longo, 2014), yielding a final alignment of [TOTAL_LENGTH] amino acid positions across [NUMBER] partitions. We performed partitioned maximum likelihood (ML) phylogenetic inference using IQ-TREE v2.3 (Minh et al., 2020). The best-fit partitioning scheme and substitution models were selected using ModelFinder (Kalyaanamoorthy et al., 2017) with the TESTMERGEONLY option and [MODEL_SET] model set. Partitions were merged if they shared the same evolutionary model to reduce model complexity. The final tree was inferred using the selected partition scheme, with branch support assessed using 1,000 ultrafast bootstrap replicates (Hoang et al., 2018). To improve accuracy, we used the -bnni option to reduce potential overestimation of bootstrap support.
+
+#### Coalescent-Based Species Tree
+
+To account for incomplete lineage sorting, we also inferred a species tree using the multispecies coalescent model. Individual gene trees were estimated for each of the [NUMBER] alignments using IQ-TREE v2.3 with automatic model selection and 1,000 ultrafast bootstrap replicates. To improve accuracy, we used the -bnni option to reduce potential overestimation of bootstrap support and -czb to collapse zero-length branches. The resulting gene trees were summarized into a species tree using ASTRAL-III v5.7.8 (Zhang et al., 2018), which estimates the species tree topology that agrees with the largest number of quartet trees induced by the gene trees. Branch support was quantified using local posterior probabilities.
+
+### Software and Reproducibility
+
+All analyses were conducted using conda environments (conda v[VERSION]) to ensure reproducibility. Analysis scripts and detailed workflow documentation are available at [GITHUB_URL or supplementary materials].
+
+---
+
+## Complete Reference List
+
+Capella-Gutiérrez, S., Silla-Martínez, J. M., & Gabaldón, T. (2009). trimAl: a tool for automated alignment trimming in large-scale phylogenetic analyses. *Bioinformatics*, 25(15), 1972-1973. https://doi.org/10.1093/bioinformatics/btp348
+
+Criscuolo, A., & Gribaldo, S. (2010). BMGE (Block Mapping and Gathering with Entropy): a new software for selection of phylogenetic informative regions from multiple sequence alignments. *BMC Evolutionary Biology*, 10(1), 210. https://doi.org/10.1186/1471-2148-10-210
+
+Hoang, D. T., Chernomor, O., von Haeseler, A., Minh, B. Q., & Vinh, L. S. (2018). UFBoot2: improving the ultrafast bootstrap approximation. *Molecular Biology and Evolution*, 35(2), 518-522. https://doi.org/10.1093/molbev/msx281
+
+Huang, N., & Li, H. (2023). compleasm: a faster and more accurate reimplementation of BUSCO. *Bioinformatics*, 39(10), btad595. https://doi.org/10.1093/bioinformatics/btad595
+
+Kalyaanamoorthy, S., Minh, B. Q., Wong, T. K., von Haeseler, A., & Jermiin, L. S. (2017). ModelFinder: fast model selection for accurate phylogenetic estimates. *Nature Methods*, 14(6), 587-589. https://doi.org/10.1038/nmeth.4285
+
+Katoh, K., & Standley, D. M. (2013). MAFFT multiple sequence alignment software version 7: improvements in performance and usability. *Molecular Biology and Evolution*, 30(4), 772-780. https://doi.org/10.1093/molbev/mst010
+
+Kück, P., & Longo, G. C. (2014). FASconCAT-G: extensive functions for multiple sequence alignment preparations concerning phylogenetic studies. *Frontiers in Zoology*, 11(1), 81. https://doi.org/10.1186/s12983-014-0081-x
+
+Kück, P., Meusemann, K., Dambach, J., Thormann, B., von Reumont, B. M., Wägele, J. W., & Misof, B. (2010). Parametric and non-parametric masking of randomness in sequence alignments can be improved and leads to better resolved trees. *Frontiers in Zoology*, 7(1), 10. https://doi.org/10.1186/1742-9994-7-10
+
+Minh, B. Q., Schmidt, H. A., Chernomor, O., Schrempf, D., Woodhams, M. D., von Haeseler, A., & Lanfear, R. (2020). IQ-TREE 2: new models and efficient methods for phylogenetic inference in the genomic era. *Molecular Biology and Evolution*, 37(5), 1530-1534. https://doi.org/10.1093/molbev/msaa015
+
+Steenwyk, J. L., Buida III, T. J., Li, Y., Shen, X. X., & Rokas, A. (2020). ClipKIT: a multiple sequence alignment trimming software for accurate phylogenomic inference. *PLOS Biology*, 18(12), e3001007. https://doi.org/10.1371/journal.pbio.3001007
+
+Zhang, C., Rabiee, M., Sayyari, E., & Mirarab, S. (2018). ASTRAL-III: polynomial time species tree reconstruction from partially resolved gene trees. *BMC Bioinformatics*, 19(6), 153. https://doi.org/10.1186/s12859-018-2129-y
+
+---
+
+## Instructions for Use
+
+1. **Replace placeholders in brackets** with your actual values:
+   - `[NUMBER]`, `[VERSION]`, `[LINEAGE_NAME]`, `[THRESHOLD]`, `[MIN_LENGTH]`, etc.
+
+2. **Remove sections for tools you didn't use**:
+   - Delete the trimming method descriptions you didn't use
+   - If you only did concatenated OR coalescent analysis, remove the other section
+
+3. **Adjust detail level** based on your target journal:
+   - Combine into shorter paragraph for journals with strict word limits
+   - Expand with more parameter details for bioinformatics journals
+
+4. **Add to your manuscript**:
+   - This goes in your Materials and Methods section
+   - Add all references to your bibliography
+
+5. **Update version numbers**:
+   - Check actual versions used: `conda list` in your phylo environment
+   - Include versions in your methods for reproducibility
+```
+
+---
+
 *This reference guide complements the main BUSCO phylogenomics skill and provides detailed technical specifications for implementation.*
