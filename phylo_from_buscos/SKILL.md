@@ -21,6 +21,7 @@ This skill helps users generate phylogenies from genome assemblies by:
 The skill provides access to these bundled resources:
 
 ### Scripts (`scripts/`)
+- **`query_ncbi_assemblies.py`** - Query NCBI for available genome assemblies by taxon name (new!)
 - **`download_ncbi_genomes.py`** - Download genomes from NCBI using BioProjects or Assembly accessions
 - **`rename_genomes.py`** - Rename genome files with meaningful sample names (important!)
 - **`generate_qc_report.sh`** - Generate quality control reports from compleasm results
@@ -81,7 +82,8 @@ Ask these questions to gather essential workflow parameters:
 
 2. **Input Data**
    - Local genome files, NCBI accessions, or both?
-   - If NCBI: Assembly accessions (GCA_*/GCF_*) or BioProject accessions (PRJNA*/PRJEB*/PRJDA*)?
+   - If NCBI: Do you already have Assembly accessions (GCA_*/GCF_*) or BioProject accessions (PRJNA*/PRJEB*/PRJDA*)?
+   - If user doesn't have accessions: Offer to help find assemblies using `query_ncbi_assemblies.py` (see "STEP 0A: Query NCBI for Assemblies" below)
    - If local files: What are the file paths?
 
 3. **Taxonomic Scope & Dataset Details**
@@ -253,6 +255,65 @@ Use the unified conda environment setup script from `references/REFERENCE.md` (S
 - All subsequent steps use `conda activate phylo` (the unified environment)
 
 See `references/REFERENCE.md` for the complete setup script template.
+
+---
+
+### STEP 0A: Query NCBI for Assemblies (Optional)
+
+**Use this step when**: User wants to use NCBI data but doesn't have specific assembly accessions yet.
+
+This optional preliminary step helps users discover available genome assemblies by taxon name before proceeding with the main workflow.
+
+#### When to Offer This Step
+
+Offer this step when:
+- User wants to analyze genomes from NCBI
+- User doesn't have specific Assembly or BioProject accessions
+- User mentions a taxonomic group (e.g., "I want to build a phylogeny for beetles")
+
+#### Workflow
+
+1. **Ask for focal taxon**: Request the taxonomic group of interest
+   - Examples: "Coleoptera", "Drosophila", "Apis mellifera"
+   - Can be at any taxonomic level (order, family, genus, species)
+
+2. **Query NCBI using the script**: Use `scripts/query_ncbi_assemblies.py` to search for assemblies
+
+   ```bash
+   # Basic query (returns 20 results by default)
+   python scripts/query_ncbi_assemblies.py --taxon "Coleoptera"
+
+   # Query with more results
+   python scripts/query_ncbi_assemblies.py --taxon "Drosophila" --max-results 50
+
+   # Query for RefSeq assemblies only (higher quality, GCF_* accessions)
+   python scripts/query_ncbi_assemblies.py --taxon "Apis" --refseq-only
+
+   # Save accessions to file for later download
+   python scripts/query_ncbi_assemblies.py --taxon "Coleoptera" --save assembly_accessions.txt
+   ```
+
+3. **Present results to user**: The script displays:
+   - Assembly accession (GCA_* or GCF_*)
+   - Organism name
+   - Assembly level (Chromosome, Scaffold, Contig)
+   - Assembly name
+
+4. **Help user select assemblies**: Ask user which assemblies they want to include
+   - Consider assembly level (Chromosome > Scaffold > Contig)
+   - Consider phylogenetic breadth (species coverage)
+   - Consider data quality (RefSeq > GenBank when available)
+
+5. **Collect selected accessions**: Compile the list of chosen assembly accessions
+
+6. **Proceed to STEP 1**: Use the selected accessions with `download_ncbi_genomes.py`
+
+#### Tips for Assembly Selection
+
+- **Assembly Level**: Chromosome-level assemblies are most complete, followed by Scaffold, then Contig
+- **RefSeq vs GenBank**: RefSeq (GCF_*) assemblies undergo additional curation; GenBank (GCA_*) are submitter-provided
+- **Taxonomic Sampling**: For phylogenetics, aim for representative sampling across the taxonomic group
+- **Quality over Quantity**: Better to have 20 high-quality assemblies than 100 poor-quality ones
 
 ---
 
@@ -676,7 +737,9 @@ When a user requests phylogeny generation:
 
 1. Gather required information using the "Initial User Questions" section
 2. Generate STEP 0 setup script from `references/REFERENCE.MD`
-3. Proceed step-by-step through workflow (STEPS 1-8), using templates and referring to `references/REFERENCE.md` for detailed implementation
-4. All workflow scripts should use the unified conda environment (`conda activate phylo`)
-5. Generate STEP 9 methods paragraph from template in `references/REFERENCE.md`
-6. Provide final outputs summary
+3. If user needs help finding NCBI assemblies, perform STEP 0A using `query_ncbi_assemblies.py`
+4. Proceed step-by-step through workflow (STEPS 1-8), using templates and referring to `references/REFERENCE.md` for detailed implementation
+5. All workflow scripts should use the unified conda environment (`conda activate phylo`)
+6. Validate all generated scripts before presenting to user (see "Script Validation" section)
+7. Generate STEP 9 methods paragraph from template in `references/REFERENCE.md`
+8. Provide final outputs summary
