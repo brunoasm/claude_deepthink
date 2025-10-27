@@ -134,6 +134,11 @@ Ask these questions to gather essential workflow parameters:
 
    Use the substitution model recommendation system (see "Substitution Model Recommendation" section below).
 
+10. **Educational Goals**
+   - Are you learning bioinformatics and would you like comprehensive explanations of each workflow step?
+   - If yes: After completing each major workflow stage, offer to explain what the step accomplishes, why certain choices were made, and what best practices are being followed.
+   - Store this preference to use throughout the workflow.
+
 ---
 
 ## Recommended Directory Structure
@@ -670,6 +675,13 @@ After completing all validation checks:
 - **Always ask about CPU allocation**: Never auto-detect cores, always ask user
 - **Recommend optimized workflows**: For users with adequate resources, recommend optimized parallel approaches over simple serial approaches
 - **Be clear and pedagogical**: Explain why each step is necessary
+- **Provide educational explanations when requested**: If user answered yes to educational goals (question 10):
+  - After completing each major workflow stage, ask: "Would you like me to explain this step?"
+  - If yes, provide moderate-length explanation (1-2 paragraphs) covering:
+    - What the step accomplishes biologically and computationally
+    - Significant choices made and their rationale
+    - Best practices being followed in the workflow
+  - Examples of "major workflow stages": STEP 0 (setup), STEP 1 (download), STEP 2 (BUSCO), STEP 3 (QC), STEP 5 (alignment), STEP 6 (trimming), STEP 7 (concatenation), STEP 8 (phylogenetic inference)
 - **Provide complete, ready-to-run scripts**: Users should copy-paste and run
 - **Adapt to user's environment**: Always generate scheduler-specific scripts
 - **Reference supporting files**: Direct users to `references/REFERENCE.md` for details
