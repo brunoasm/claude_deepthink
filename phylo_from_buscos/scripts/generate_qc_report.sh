@@ -11,7 +11,7 @@ OUTPUT_FILE="${1:-qc_report.csv}"
 echo "Genome,Complete_SCO,Fragmented,Duplicated,Missing,Completeness(%)" > "${OUTPUT_FILE}"
 
 count=0
-for dir in *_compleasm; do
+for dir in 01_busco_results/*_compleasm; do
   if [ ! -d "${dir}" ]; then
     continue
   fi

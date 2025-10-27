@@ -22,7 +22,7 @@ mkdir -p single_copy_orthologs
 
 # Copy gene_marker.fasta files and rename by species
 count=0
-for dir in *_compleasm; do
+for dir in 01_busco_results/*_compleasm; do
   if [ ! -d "${dir}" ]; then
     continue
   fi

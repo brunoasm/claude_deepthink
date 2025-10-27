@@ -7,6 +7,9 @@ conda activate phylo
 TOTAL_THREADS=TOTAL_THREADS  # Replace with total cores you want to use (e.g., 16, 32, 64)
 echo "Processing first genome with ${TOTAL_THREADS} CPU threads to download lineage database..."
 
+# Create output directory
+mkdir -p 01_busco_results
+
 # Process FIRST genome only
 first_genome=$(head -n 1 genome_list.txt)
 genome_name=$(basename ${first_genome} .fasta)
@@ -14,7 +17,7 @@ echo "Processing: ${genome_name}"
 
 compleasm run \
   -a ${first_genome} \
-  -o ${genome_name}_compleasm \
+  -o 01_busco_results/${genome_name}_compleasm \
   -l LINEAGE \
   -t ${TOTAL_THREADS}
 

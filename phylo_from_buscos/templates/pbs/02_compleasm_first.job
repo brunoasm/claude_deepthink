@@ -9,6 +9,7 @@ source ~/.bashrc
 conda activate phylo
 
 mkdir -p logs
+mkdir -p 01_busco_results
 
 # Process FIRST genome only (downloads lineage database)
 first_genome=$(head -n 1 genome_list.txt)
@@ -18,7 +19,7 @@ echo "This will download the BUSCO lineage database for subsequent runs."
 
 compleasm run \
   -a ${first_genome} \
-  -o ${genome_name}_compleasm \
+  -o 01_busco_results/${genome_name}_compleasm \
   -l LINEAGE \
   -t $PBS_NUM_PPN
 

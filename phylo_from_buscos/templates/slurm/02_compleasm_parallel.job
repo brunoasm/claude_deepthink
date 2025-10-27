@@ -10,6 +10,8 @@
 source ~/.bashrc
 conda activate phylo
 
+mkdir -p 01_busco_results
+
 # Get genome for this array task (skipping the first one)
 genome=$(sed -n "${SLURM_ARRAY_TASK_ID}p" genome_list.txt)
 genome_name=$(basename ${genome} .fasta)
@@ -18,6 +20,6 @@ echo "Processing ${genome_name} with ${SLURM_CPUS_PER_TASK} threads..."
 
 compleasm run \
   -a ${genome} \
-  -o ${genome_name}_compleasm \
+  -o 01_busco_results/${genome_name}_compleasm \
   -l LINEAGE \
   -t ${SLURM_CPUS_PER_TASK}

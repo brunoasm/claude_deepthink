@@ -9,6 +9,8 @@ cd $PBS_O_WORKDIR
 source ~/.bashrc
 conda activate phylo
 
+mkdir -p 01_busco_results
+
 # Get genome for this array task
 genome=$(sed -n "${PBS_ARRAYID}p" genome_list.txt)
 genome_name=$(basename ${genome} .fasta)
@@ -17,6 +19,6 @@ echo "Processing ${genome_name} with $PBS_NUM_PPN threads..."
 
 compleasm run \
   -a ${genome} \
-  -o ${genome_name}_compleasm \
+  -o 01_busco_results/${genome_name}_compleasm \
   -l LINEAGE \
   -t $PBS_NUM_PPN

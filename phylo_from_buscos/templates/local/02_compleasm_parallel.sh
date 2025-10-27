@@ -14,6 +14,9 @@ echo "  Threads per genome: ${THREADS_PER_JOB}"
 echo "  Concurrent genomes: ${CONCURRENT_JOBS}"
 echo ""
 
+# Create output directory
+mkdir -p 01_busco_results
+
 # Process remaining genomes (skip first one) in parallel
 tail -n +2 genome_list.txt | parallel -j ${CONCURRENT_JOBS} '
   genome_name=$(basename {} .fasta)
@@ -21,7 +24,7 @@ tail -n +2 genome_list.txt | parallel -j ${CONCURRENT_JOBS} '
 
   compleasm run \
     -a {} \
-    -o ${genome_name}_compleasm \
+    -o 01_busco_results/${genome_name}_compleasm \
     -l LINEAGE \
     -t THREADS_PER_JOB
 '
