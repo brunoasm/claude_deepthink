@@ -1,26 +1,6 @@
 # B. de Medeiros' Claude Skills Collection
 
-A curated collection of custom skills for Claude that I find useful in my work. 
-
-## About This Repository
-
-This repository contains custom Claude skills designed to improve how Claude approaches different types of tasks. Each skill is a self-contained module that can be installed independently in Claude.ai or used via the Claude API or Claude Code.
-
-### Anthropic Official Skills
-
-The `anthropic-skills/` directory contains the official skills repository from Anthropic as a git submodule. This includes:
-- **skill-creator**: A meta-skill that helps you create new custom skills
-- Other official example skills and templates
-
-To clone this repository with the submodule:
-```bash
-git clone --recurse-submodules <repository-url>
-```
-
-If you've already cloned without submodules:
-```bash
-git submodule update --init --recursive
-```
+This repository contains custom Claude skills designed to improve how Claude approaches different types of tasks. Each skill is a self-contained module that can be installed independently in Claude.ai or used via the Claude API or Claude Code. I have also bundled them into Claude plugins to make management easier.
 
 ## What Are Claude Skills?
 
@@ -62,6 +42,22 @@ Generates complete phylogenomic workflows from genome assemblies using BUSCO/com
 Sets up phylogenetic biogeographic analyses using BioGeoBEARS in R. Validates and reformats input files (phylogenetic tree and geographic distribution data), generates organized analysis folders with RMarkdown scripts, guides parameter selection, and produces publication-ready visualizations of ancestral range reconstructions. Compares multiple biogeographic models (DEC, DIVALIKE, BAYAREALIKE with/without founder-event speciation).
 
 [View detailed documentation →](./biogeobears/README.md)
+
+### Anthropic Official Skills
+
+The `anthropic-skills/` directory contains the official skills repository from Anthropic as a git submodule. This includes:
+- **skill-creator**: A meta-skill that helps you create new custom skills
+- Other official example skills and templates
+
+To clone this repository with the submodule:
+```bash
+git clone --recurse-submodules <repository-url>
+```
+
+If you've already cloned without submodules:
+```bash
+git submodule update --init --recursive
+```
 
 ## Installation
 
@@ -117,18 +113,6 @@ All installed skills will be automatically available in Claude Code.
 Download and uncompress the desired skill zip file from [releases](https://github.com/brunoasm/my_claude_skills/releases).
 
 Place the `SKILL.md` file and associated files from each skill directory in your skills configuration according to your API integration setup. Consult the Claude API documentation for skill configuration details.
-
-## Skill Structure
-
-Each skill in this repository follows this minimal structure:
-
-```
-skill_name/
-├── SKILL.md          # The skill definition (required for Claude)
-└── README.md         # Documentation and usage examples
-```
-
-Other accesoty files may be available for each skill (e. g. scripts, detailed references, etc)
 
 ## Resources
 
