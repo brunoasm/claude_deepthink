@@ -495,10 +495,116 @@ Provide users with a summary of outputs:
 
 ---
 
+## Script Validation
+
+**ALWAYS perform validation checks** after generating scripts but before presenting them to the user. This ensures script accuracy, consistency, and proper resource allocation.
+
+### Validation Workflow
+
+For each generated script, perform these validation checks in order:
+
+#### 1. Program Option Verification
+
+**Purpose**: Detect hallucinated or incorrect command-line options that may cause scripts to fail.
+
+**Procedure**:
+1. **Extract all command invocations** from the generated script (e.g., `compleasm run`, `iqtree -s`, `mafft --auto`)
+2. **Compare against reference sources**:
+   - First check: Compare against corresponding template in `templates/` directory
+   - Second check: Compare against examples in `references/REFERENCE.md`
+   - Third check: If options differ significantly or are uncertain, perform web search for official documentation
+3. **Common tools to validate**:
+   - `compleasm run` - Check `-a`, `-o`, `-l`, `-t` options
+   - `iqtree` - Verify `-s`, `-p`, `-m`, `-bb`, `-alrt`, `-nt`, `-safe` options
+   - `mafft` - Check `--auto`, `--thread`, `--reorder` options
+   - `astral` - Verify `-i`, `-o` options
+   - Trimming tools (`trimal`, `clipkit`, `BMGE.jar`) - Validate options
+
+**Action on issues**:
+- If incorrect options found: Inform user of the issue and ask if they want you to correct it
+- If uncertain: Ask user to verify with tool documentation before proceeding
+
+#### 2. Pipeline Continuity Verification
+
+**Purpose**: Ensure outputs from one step correctly feed into inputs of subsequent steps.
+
+**Procedure**:
+1. **Map input/output relationships**:
+   - Step 2 output (`01_busco_results/*_compleasm/`) → Step 3 input (QC script)
+   - Step 3 output (`single_copy_orthologs/`) → Step 5 input (MAFFT)
+   - Step 5 output (`04_alignments/*.fas`) → Step 6 input (trimming)
+   - Step 6 output (`05_trimmed/*.fas`) → Step 7 input (FASconCAT-G)
+   - Step 7 output (`FcC_supermatrix.fas`, partition file) → Step 8A input (IQ-TREE)
+   - Step 8C output (`*.treefile`) → Step 8D input (ASTRAL)
+
+2. **Check for consistency**:
+   - File path references match across scripts
+   - Directory structure follows recommended layout
+   - Glob patterns correctly match expected files
+   - Required intermediate files are generated before being used
+
+**Action on issues**:
+- If path mismatches found: Inform user and ask if they want you to correct them
+- If directory structure inconsistent: Suggest corrections aligned with recommended structure
+
+#### 3. Resource Compatibility Check
+
+**Purpose**: Ensure allocated computational resources are appropriate for the task.
+
+**Procedure**:
+1. **Verify resource allocations** against recommendations in `references/REFERENCE.md`:
+   - **Memory allocation**: Check if memory per CPU (typically 6GB for compleasm, 2-4GB for others) is adequate
+   - **Thread allocation**: Verify thread counts are reasonable for the number of genomes/loci
+   - **Walltime**: Ensure walltime is sufficient based on dataset size guidelines
+   - **Parallelization**: Check that threads per job × concurrent jobs ≤ total threads
+
+2. **Common issues to check**:
+   - Compleasm: First job needs full thread allocation (downloads database)
+   - IQ-TREE: `-nt` should match allocated CPUs
+   - Gene trees: Ensure enough threads per tree × concurrent trees ≤ total available
+   - Memory: Concatenated tree inference may need 8-16GB per CPU for large datasets
+
+3. **Validate against user-specified constraints**:
+   - Total CPUs specified by user
+   - Available memory per node
+   - Maximum walltime limits
+   - Scheduler-specific limits (if mentioned)
+
+**Action on issues**:
+- If resource allocation issues found: Inform user and suggest corrections with justification
+- If uncertain about adequacy: Ask user about typical job performance in their environment
+
+### Validation Reporting
+
+After completing all validation checks:
+
+1. **If all checks pass**: Inform user briefly: "Scripts validated successfully - options, pipeline flow, and resources verified."
+
+2. **If issues found**: Present a structured report:
+   ```
+   **Validation Results**
+
+   ⚠️ Issues found during validation:
+
+   1. [Issue category]: [Description]
+      - Current: [What was generated]
+      - Suggested: [Recommended fix]
+      - Reason: [Why this is an issue]
+
+   Would you like me to apply these corrections?
+   ```
+
+3. **Always ask before correcting**: Never silently fix issues - always get user confirmation before applying changes.
+
+4. **Document corrections**: If corrections are applied, explain what was changed and why.
+
+---
+
 ## Communication Guidelines
 
 - **Always start with STEP 0**: Generate the unified environment setup script
 - **Always end with STEP 9**: Generate the customized methods paragraph
+- **Always validate scripts**: Perform validation checks before presenting scripts to users
 - **Use unified environment by default**: All scripts should use `conda activate phylo`
 - **Always ask about CPU allocation**: Never auto-detect cores, always ask user
 - **Recommend optimized workflows**: For users with adequate resources, recommend optimized parallel approaches over simple serial approaches
